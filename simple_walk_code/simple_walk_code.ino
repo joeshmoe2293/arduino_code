@@ -1,71 +1,32 @@
-#define middle A0
-#define left A1
-#define right A2
-#define trig 5
-#define echo 6
-
-#include <Servo.h>
-
-Servo middleServo;
-Servo leftServo;
-Servo rightServo;
+#define trig1 5
+#define echo1 6
+#define trig2 9
+#define echo2 10
 
 unsigned long echo_value=0;
-unsigned long distance=0;
+unsigned long distance1=0;
+unsigned long distance2=0;
 
 void setup() 
 {
   Serial.begin(9600);
-  
-  middleServo.attach(middle);
-  leftServo.attach(left);
-  rightServo.attach(right);
 
-  pinMode(trig, OUTPUT);
-  pinMode(echo, INPUT);
+  pinMode(trig1, OUTPUT);
+  pinMode(echo1, INPUT);
+  pinMode(trig2, OUTPUT);
+  pinMode(echo2, INPUT);
 
-  distance=ping();
+  distance1=ping(trig1, echo1);
+  distance2=ping(trig2, echo2);
+
+  Serial.println("Starting...");
+  Serial.println("Initial values: ");
+  Serial.println("Sensor 1 reads: " + distance1);
+  Serial.println("Sensor 2 reads: " + distance2);
+  Serial.println("");
 }
 
-void liftOtherSide()
-{
-  if (middleServo.read()<=90)
-  {
-    for (int i=middleServo.read(); i<105; i++)
-    {
-      middleServo.write(i);
-      delay(250);
-    }
-  }
-  else if (middleServo.read()>90)
-  {
-    for (int i=middleServo.read(); i>75; i--)
-    {
-      middleServo.write(i);
-      delay(250);
-    }
-  }
-}
-
-void moveLegsForwards(Servo &servo)
-{
-  for (int i=servo.read(); i<105; i++)
-  {
-    servo.write(i);
-    //delay(10);
-  }  
-}
-
-void moveLegsBackwards(Servo servo)
-{
-  for (int i=servo.read(); i>75; i--)
-  {
-    servo.write(i);
-    //delay(10);
-  }  
-}
-
-unsigned long ping()
+unsigned long ping(int trig, int echo)
 {
   digitalWrite(trig, LOW);
   delay(2);
@@ -74,24 +35,28 @@ unsigned long ping()
   digitalWrite(trig, LOW);
 
   echo_value=pulseIn(echo, HIGH);
-  distance=(echo_value/58.138)*.39;
-  return distance;
+  return (echo_value/58.138)*.39;
+}
+
+unsigned long averageTimes(unsigned long distance1, unsigned long distance2)
+{
+  return (distance1+distance2)/2;
 }
 
 void loop() 
 {
-  // NOT SURE HOW WELL THIS IS GOING TO WORK...
-  while (distance>5)
-  {
-    liftOtherSide();
-    delay(25);
-    moveLegsForwards(leftServo);
-    moveLegsBackwards(rightServo);
-    delay(25);
-    liftOtherSide();
-    delay(25);
-    moveLegsForwards(rightServo);
-    moveLegsBackwards(leftServo);
-    delay(25);
-  }
+  distance1=ping(trig1, echo1);
+
+  delay(200); // Let any residual pings from the unltrasonic sensor gradually disappear
+  
+  distance2=ping(trig2, echo2);
+
+  Serial.println("Sensor 1 reads: " + distance1);
+  Serial.println("Sensor 2 reads: " + distance2);
+
+  Serial.print("Average of the 2 values: " + String(averageTimes(distance1, distance2), 3));
+
+  Serial.println("");
+  
+  delay(200); // Let any residual pings from the unltrasonic sensor gradually disappear
 }
