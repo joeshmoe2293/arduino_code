@@ -27,7 +27,7 @@ void setup()
   pinMode(echo, INPUT);
 
   middleServo.write(90);
-  leftServo.write(90);
+  leftServo.write(100);
   rightServo.write(90);
 
   positions[0]=middleServo.read();
@@ -39,37 +39,43 @@ void liftOtherSide()
 {
   if (middleServo.read()<=90)
   {
-    for (int i=middleServo.read(); i<105; i++)
-    {
-      middleServo.write(i);
-      delay(10);
-    }
+    middleServo.write(100);
   }
   else if (middleServo.read()>90)
   {
-    for (int i=middleServo.read(); i>75; i--)
-    {
-      middleServo.write(i);
-      delay(10);
-    }
+    middleServo.write(80);
   }
 }
 
-void moveLegsForwards(Servo &servo)
+void moveLeftLegsForwards()
 {
-  for (int i=servo.read(); i<125; i++)
+  for (int i=leftServo.read(); i>80; i--)
   {
-    servo.write(i);
-    delay(10);
+    leftServo.write(i);
   }  
 }
 
-void moveLegsBackwards(Servo servo)
+void moveLeftLegsBackwards()
 {
-  for (int i=servo.read(); i>55; i--)
+  for (int i=leftServo.read(); i<145; i++)
   {
-    servo.write(i);
-    delay(10);
+    leftServo.write(i);
+  }  
+}
+
+void moveRightLegsForwards()
+{
+  for (int i=rightServo.read(); i<125; i++)
+  {
+    rightServo.write(i);
+  }  
+}
+
+void moveRightLegsBackwards()
+{
+  for (int i=rightServo.read(); i>70; i--)
+  {
+    rightServo.write(i);
   }  
 }
 
@@ -89,18 +95,20 @@ unsigned long ping()
 void loop() 
 {
   // NOT SURE HOW WELL THIS IS GOING TO WORK...
-  /*liftOtherSide();
-  moveLegsForwards(leftServo);
-  moveLegsBackwards(rightServo);
-  delay(25);
   liftOtherSide();
-  delay(25);
-  moveLegsForwards(rightServo);
-  moveLegsBackwards(leftServo);
-  delay(25);*/
-  for (int i=50; i<110; i++)
+  delay(50);
+  moveLeftLegsForwards();
+  moveRightLegsBackwards();
+  delay(50);
+  liftOtherSide();
+  delay(50);
+  moveRightLegsForwards();
+  moveLeftLegsBackwards();
+  delay(50);
+  /*
+  for (int i=70; i<125; i++)
   { 
-    middleServo.write(i);
+    rightServo.write(i);
     delay(10);
     
     positions[0]=middleServo.read();
@@ -109,7 +117,7 @@ void loop()
   
     distance=ping();
   
-    delay(500);
+    delay(250);
   
     for (int i=0; i<3; i++)
     {
@@ -119,5 +127,5 @@ void loop()
     Serial.println(distance);
   
     Serial.println("Next loop...");
-  }
+  }*/
 }
