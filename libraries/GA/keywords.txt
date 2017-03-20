@@ -1,0 +1,26 @@
+GA	KEYWORD1
+
+Population	KEYWORD1
+getIndividuals	KEYWORD2
+getFittest	KEYWORD2
+size	KEYWORD2
+saveIndividual	KEYWORD2
+
+Individual	KEYWORD1
+generateIndividual	KEYWORD2
+setDefaultGeneLength	KEYWORD2
+getGene	KEYWORD2
+setGene	KEYWORD2
+size	KEYWORD2
+getFitness	KEYWORD2
+
+Algorithm	KEYWORD1
+evolvePopulation	KEYWORD2
+crossover	KEYWORD2
+mutate	KEYWORD2
+tournamentSelection	KEYWORD2
+
+FitnessCalc	KEYWORD1
+setSolution	KEYWORD2
+getFitness	KEYWORD2
+getMaxFitness	KEYWORD2
