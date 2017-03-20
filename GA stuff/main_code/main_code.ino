@@ -10,20 +10,6 @@ unsigned long distance2=0;
 void setup() 
 {
   Serial.begin(9600);
-
-  pinMode(trig1, OUTPUT);
-  pinMode(echo1, INPUT);
-  pinMode(trig2, OUTPUT);
-  pinMode(echo2, INPUT);
-
-  distance1=ping(trig1, echo1);
-  distance2=ping(trig2, echo2);
-
-  Serial.println("Starting...");
-  Serial.println("Initial values: ");
-  Serial.println("Sensor 1 reads: " + distance1);
-  Serial.println("Sensor 2 reads: " + distance2);
-  Serial.println("");
 }
 
 unsigned long ping(int trig, int echo)
@@ -58,5 +44,7 @@ void loop()
 
   Serial.println("");
   
+    Serial.println("Next loop...");
+  }
   delay(200); // Let any residual pings from the unltrasonic sensor gradually disappear
 }
