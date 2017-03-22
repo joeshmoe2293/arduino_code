@@ -2,14 +2,13 @@
 http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ */
 
 #include "Arduino.h"
-#include <vector>
 using namespace std;
 
 template <int populationSize>
 class Population
 {
   private:
-    vector<Individual> individuals;
+    std::vector<Individual> individuals;
   
   public:
     Population(bool initialize);

@@ -44,7 +44,7 @@ void loop()
 
   Serial.println("");
   
-    Serial.println("Next loop...");
-  }
+  Serial.println("Next loop...");
+  
   delay(200); // Let any residual pings from the unltrasonic sensor gradually disappear
 }
