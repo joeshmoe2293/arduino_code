@@ -121,6 +121,10 @@ static int FitnessCalc::getMaxFitness()
 		}
 	}
 }*/
+#ifndef GA_h
+#define GA_h
+
+#include "Arduino.h"
 
 /* Class structure based on code provided at:
 http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ */
@@ -138,26 +142,10 @@ class Population
     Individual individuals[populationSize];
   
   public:
-	Population(bool initialize)
-	{
-		if (initialize)
-		{
-			using namespace std; // MAKE SURE THAT THIS IS THE RIGHT FUNCTION TO BE USING...
-			for (int i=0; i<(populationSize); i++)
-			{
-				Individual newIndividual();
-				newIndividual.generateIndividual();
-				saveIndividual(i, newIndividual);	
-			}
-		}
-	}
-    Individual getIndividual(int index) : {return individuals[index];}
-    Individual getFittest(); // ADD STUFF HERE LATER
-    int size() 
- 	{
-		using namespace std;
-		return size_t(std);
-	}
+	Population(bool initialize);
+    Individual getIndividual(int index);
+    Individual getFittest();
+    int size();
     void saveIndividual(int index, Individual indiv);
 };
 
@@ -202,3 +190,5 @@ class FitnessCalc
     static int getFitness(Individual individual);
     static int getMaxFitness();
 };
+
+#endif
