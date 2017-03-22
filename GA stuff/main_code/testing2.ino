@@ -4,6 +4,18 @@ http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beg
 #include "Arduino.h"
 using namespace std;
 
+template <typename T, byte arrSize>
+class array2
+{
+  private:
+    T arr[arrSize];
+  public:
+    byte getSize() const {return size;}
+    T& operator[](byte index) {return arr[index];}
+    T* getArr() const {return &data[0];}
+    void setValue(byte index, T value) {arr[index]=value;}
+}
+
 template <int populationSize>
 class Population
 {
