@@ -4,24 +4,27 @@ http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beg
 #include "Arduino.h"
 using namespace std;
 
-template <typename T, byte arrSize>
-class array2
+namespace arr
 {
-  private:
-    T arr[arrSize];
-  public:
-    byte getSize() const {return size;}
-    T& operator[](byte index) {return arr[index];}
-    T* getArr() const {return &data[0];}
-    void setValue(byte index, T value) {arr[index]=value;}
+  template <typename T, byte arrSize>
+  class array
+  {
+    private:
+      T arr[arrSize];
+      byte _size(arrSize);
+    public:
+      byte getSize() const {return _size;}
+      T& operator[](byte index) {return arr[index];}
+      T* getArr() const {return &data[0];}
+      void setValue(byte index, T value) {arr[index]=value;}
+  }
 }
 
 template <int populationSize>
 class Population
 {
   private:
-    std::vector<Individual> individuals;
-  
+    arr::array<Individual, populationSize> individuals;
   public:
     Population(bool initialize);
     Individual getIndividual(int index);
