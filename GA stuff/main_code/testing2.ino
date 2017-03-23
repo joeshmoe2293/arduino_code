@@ -14,9 +14,8 @@ namespace arr
       byte _size(arrSize);
     public:
       byte getSize() const {return _size;}
-      T& operator[](byte index) {return arr[index];}
+      T& operator[](byte &index) {return arr[index];}
       T* getArr() const {return &data[0];}
-      void setValue(byte index, T value) {arr[index]=value;}
   }
 }
 
@@ -24,7 +23,7 @@ template <int populationSize>
 class Population
 {
   private:
-    arr::array<Individual, populationSize> individuals;
+    arr::array(Individual, populationSize) individuals;
   public:
     Population(bool initialize);
     Individual getIndividual(int index);
@@ -36,26 +35,25 @@ class Population
 class Individual
 { 
   private:
-    vector<byte> genes;
     int fitness=0;
     static int defaultGeneLength=64;
+	static int *const &dgl=defaultGeneLength;
+    arr::array(byte, dgl) genes;
 
   public:
-    Individual(){genes.resize(defaultGeneLength);}
     void generateIndividual();
-    static void setDefaultGeneLength(int value);
-    byte getGene(int index);
-    void setGene(int index, byte value);
+    static void setDefaultGeneLength(int &value);
+    byte getGene(int &index);
+    void setGene(int &index, byte &value);
     int size();
 };
 
 class Algorithm
 {
   private:
-    static final double uniformRate=0.5;
-    static final double mutationRate=0.015;
-    static final int tournamentSize=5;
+    static final double uniformRate=0.5, mutationRate=0.015;
     static final boolean elitism=true;
+    static final int tournamentSize=5;
 
     static Individual crossover(Individual indiv1, Individual indiv2);
     static void mutate(Individual indiv);
@@ -67,11 +65,10 @@ class Algorithm
 
 class FitnessCalc
 {
-  private static vector<byte> solution;
+  private static arr::array(byte) solution;
 
   public:
     static void setSolution(byte newSolution[]);
-    //static void setSolution(String newSolution);
     static int getFitness(Individual individual);
     static int getMaxFitness(Population pop);
 };
@@ -80,7 +77,7 @@ Population::Population(bool initialize)
 {
   if (initialize)
   {
-    for (int i=0; i<(populationSize); i++)
+    for (int i=0; i<(individuals.getSize()); i++)
     {
       Individual newIndividual;
       newIndividual.generateIndividual();
@@ -89,7 +86,7 @@ Population::Population(bool initialize)
   }
 }
 
-Individual Population::getIndividual(int index)
+Individual Population::getIndividual(int &index)
 {
   return individuals.at(index);  
 }
@@ -99,9 +96,9 @@ int Population::size()
   return individuals.size();
 }
 
-void Population::saveIndividual(int index, Individual indiv)
+void Population::saveIndividual(int &index, Individual &indiv)
 {
-  individuals.insert(index, indiv);
+  individuals[index]=indiv;
 }
 
 void Individual::generateIndividual()
@@ -154,9 +151,9 @@ static Population Algorithm::evolvePopulation(Population pop)
   // ADD STUFF HERE  
 }
 
-static void FitnessCalc::setSolution(byte newSolution[])
+static void FitnessCalc::setSolution(arr:array(byte) &newSolution)
 {
-  solution=vector<byte> newSolutionVector(newSolution, newSolution+sizeof(newSolution)/sizeof(newSolution[0]));
+  solution=newSolution;
 }
 
 static int FitnessCalc::getFitness(Individual indiv)
