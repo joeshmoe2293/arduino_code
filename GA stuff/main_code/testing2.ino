@@ -7,7 +7,7 @@ using namespace std;
 namespace arr
 {
   template <typename T, byte arrSize>
-  class array
+  class array1
   {
     private:
       T arr[arrSize];
@@ -19,41 +19,42 @@ namespace arr
   };
 }
 
-template <int populationSize>
-class Population
-{
-  private:
-    arr::array(Individual, populationSize) individuals;
-  public:
-    Population(bool &initialize);
-    Individual getIndividual(int &index);
-    Individual getFittest(); // ADD STUFF HERE LATER
-    int size();
-    void saveIndividual(int &index, Individual &indiv);
-};
-
 class Individual
 { 
   private:
     int fitness=0;
-    static int defaultGeneLength=64, &dgl=defaultGeneLength;
-    arr::array(byte, dgl) genes;
-		static byte generateRandomGene();
+    static constexpr int defaultGeneLength=64;
+    static constexpr int const &dgl=defaultGeneLength;
+    arr::array1<byte, dgl> genes;
+    static byte generateRandomGene();
 
   public:
     void generateIndividual();
     static void setDefaultGeneLength(int &value);
     byte getGene(int &index);
     void setGene(int &index, byte &value);
-    int size();
+    int getSize();
+};
+
+template <int populationSize>
+class Population
+{
+  private:
+    arr::array1<Individual, populationSize> individuals;
+  public:
+    Population(bool &initialize);
+    Individual getIndividual(int &index);
+    Individual getFittest(); // ADD STUFF HERE LATER
+    int getSize();
+    void saveIndividual(int &index, Individual &indiv);
 };
 
 class Algorithm
 {
   private:
-    static final double uniformRate=0.5, mutationRate=0.015;
-    static final boolean elitism=true;
-    static final int tournamentSize=5;
+    static const double uniformRate=0.5, mutationRate=0.015;
+    static const boolean elitism=true;
+    static const int tournamentSize=5;
 
     static Individual crossover(Individual &indiv1, Individual &indiv2);
     static void mutate(Individual &indiv);
@@ -65,10 +66,10 @@ class Algorithm
 
 class FitnessCalc
 {
-  private static arr::array(byte) solution;
+  private static arr::array<byte, 64> solution;
 
   public:
-    static void setSolution(arr::array(byte, solution.size()) &newSolution);
+    static void setSolution(arr::array<byte, solution.getSize()> &newSolution);
     static int getFitness(Individual &individual);
     static int getMaxFitness(Population &pop);
 };
@@ -91,9 +92,9 @@ Individual Population::getIndividual(int &index)
   return individuals[index];  
 }
 
-int Population::size()
+int Population::getSize()
 {
-  return individuals.size();
+  return individuals.getSize();
 }
 
 void Population::saveIndividual(int &index, Individual &indiv)
@@ -103,7 +104,7 @@ void Population::saveIndividual(int &index, Individual &indiv)
 
 void Individual::generateIndividual()
 {
-  for (int i=0; i<genes.size(); i++)
+  for (int i=0; i<genes.getSize(); i++)
   {
     genes[i]=Individual.generateRandomGene();
   }  
@@ -132,9 +133,9 @@ void Individual::setGene(int &index, byte &value)
   genes[index]=value;
 }
 
-int Individual::size()
+int Individual::getSize()
 {
-  return genes.size();
+  return genes.getSize();
 }
 
 static Individual Algorithm::crossover(Individual &indiv1, Individual &indiv2)
@@ -157,9 +158,9 @@ static Population Algorithm::evolvePopulation(Population &pop)
   // ADD STUFF HERE  
 }
 
-static void FitnessCalc::setSolution(arr:array(byte, solution.size()) &newSolution)
+static void FitnessCalc::setSolution(arr:array1<byte, solution.getSize()> &newSolution)
 {
-	memcpy(&solution, &newSolution, solution.size()*sizeof(byte));	
+	memcpy(&solution, &newSolution, solution.getSize()*sizeof(byte));	
 }
 
 static int FitnessCalc::getFitness(Individual &indiv)
@@ -171,9 +172,9 @@ static int FitnessCalc::getMaxFitness(Population &pop)
 {
   int maxFitness=0;
   int currentFitness=0;
-  for (int i=0; i<solution.size(); i++)
+  for (int i=0; i<solution.getSize(); i++)
   {
-    currentFitness=pop.getIndividual(i).getFitness
+    currentFitness=pop.getIndividual(i).getFitness();
     if (currentFitness > maxFitness)
     {
         maxFitness=currentFitness;
