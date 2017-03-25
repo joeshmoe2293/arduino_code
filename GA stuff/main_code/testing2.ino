@@ -1,5 +1,7 @@
 /* Class structure based on code provided at:
-http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ */
+http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ 
+HUGE thanks to fenneking and artemis in the c-plusplus channel on the "Programming" Discord server
+for all the debugging and help*/
 
 #include "Arduino.h"
 using namespace std;
