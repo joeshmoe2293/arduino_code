@@ -1,5 +1,5 @@
-#define defaultIn 12
-#define defaultOut 13
+#define defaultOut 12
+#define defaultIn 13
 
 /* Class structure based on code provided at:
 http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ 
@@ -70,6 +70,8 @@ class Individual
     void setGene(byte index, float value);
     int getSize() {return defaultGeneLength;}
     void getMeasured();
+    int getPinOut() {return pin1;}
+    int getPinIn() {return pin2;}
 };
 
 template <byte populationSize>
@@ -77,8 +79,9 @@ class Population
 {
   private:
     util::array<Individual, populationSize> individuals;
+    int pin1, pin2;
   public:
-    Population(bool initialize);
+    Population(int pinOut, int pinIn, bool initialize);
     Individual getIndividual(byte index);
     Individual getFittest(); // ADD STUFF HERE LATER
     int getSize() {return populationSize;}
@@ -113,13 +116,13 @@ class FitnessCalc
 };
 
 template <byte popSize>
-Population<popSize>::Population(bool initialize)
+Population<popSize>::Population(int pinOut, int pinIn, bool initialize):pin1(pinOut),pin2(pinIn)
 {
   if (initialize)
   {
     for (int i=0; i<(individuals.getSize()); i++)
     {
-      Individual newIndividual;
+      Individual newIndividual(pin1, pin2);
       newIndividual.generateIndividual();
       saveIndividual(i, newIndividual); 
     }
@@ -318,9 +321,9 @@ float FitnessCalc::getFittest(Population<popSize> &pop)
   for (int i=0; i<popSize; i++)
   {
     currentFitness=pop.getIndividual(i).getFitness();
-    if (currentFitness > maxFitness)
+    if ((100-currentFitness) > maxFitness)
     {
-        maxFitness=currentFitness;
+        maxFitness=(100-currentFitness);
     }
   }  
   return maxFitness;
