@@ -328,3 +328,24 @@ float FitnessCalc::getFittest(Population<popSize> &pop)
   }  
   return maxFitness;
 }
+
+/* BELOW IS THE ACTUAL RUNNING CODE */
+
+int trig1=9, echo1=10, trig2=12, echo2=13, generation=1;
+
+void setup()
+{
+  Serial.begin(9600);
+  Population<10> Sensor1(trig1, echo1, true);
+  Population<10> Sensor2(trig2, echo2, true);
+}
+
+void loop()
+{
+  while (FitnessCalc<Sensor1.getSize()>.getFittest(Sensor1)<95 && FitnessCalc<Sensor2.getSize()>.getFittest(Sensor2)<95)
+  {
+    Serial.println("Generation: " + generation);
+
+    generation++;
+  }
+}
