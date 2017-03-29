@@ -22,25 +22,26 @@ namespace util
       T* getArr() const {return &arr[0];}
   };
 
-  class operations
+  namespace operations
   {
-    private:
+    namespace 
+    {
       static float add(float x, float y) {return x+y;}
       static float sub(float x, float y) {return x-y;}
       static float mult(float x, float y) {return x*y;}
-      static float div(float x, float y) {return static_cast<byte>(x/y);}
-      
-    public:
-      static constexpr float (*performOp[])(float, float){&add, &sub, &mult, &div};
-      
-      enum OPS
-      {
-        ADD=0,
-        SUB,
-        MULT,
-        DIV
-      };
-  };
+      static float div(float x, float y) {return x/y;}
+    } 
+    
+    static float (*performOp[])(float, float){add, sub, mult, div};
+
+    enum OPS
+    {
+      ADD=0,
+      SUB,
+      MULT,
+      DIV
+    };
+  }
 }
 
 /* This is assuming that we're using ultrasonic sensors (might make this better/bigger in future) */
@@ -67,8 +68,17 @@ class Individual
     Individual(int pinOut, int pinIn);
     void generateIndividual();
     float& getGene(byte index);
+    float getFitness()
+    {
+      if (fitness==0)
+      {
+        FitnessCalc fitnessCalc(25);
+        return fitnessCalc.getFitness(this);
+      }
+      return fitness;
+    }
     void setGene(byte index, float value);
-    int getSize() {return defaultGeneLength;}
+    static constexpr int getSize() {return defaultGeneLength;}
     void getMeasured();
     int getPinOut() {return pin1;}
     int getPinIn() {return pin2;}
@@ -82,10 +92,14 @@ class Population
     int pin1, pin2;
   public:
     Population(int pinOut, int pinIn, bool initialize);
-    Individual getIndividual(byte index);
-    Individual getFittest(); // ADD STUFF HERE LATER
-    int getSize() {return populationSize;}
+    Individual& getIndividual(byte index);
+    Individual getFittest();
+    constexpr int getSize() {return populationSize;}
     void saveIndividual(byte index, Individual &indiv);
+    int getPinOut() {return pin1;}
+    int getPinIn() {return pin2;}
+    //const Individual* begin() const {return &individuals[0];}
+    //const Individual* end() const {return &individuals[0]+individuals.getSize();}
 };
 
 class Algorithm
@@ -97,22 +111,10 @@ class Algorithm
 
     static Individual crossover(Individual &indiv1, Individual &indiv2);
     static void mutate(Individual &indiv);
-    template <byte popSize> static Individual tournamentSelection(Population<popSize> &pop);
+    template <byte popSize> Individual tournamentSelection(Population<popSize> &pop);
 
   public:
-    template <byte popSize> static Population<popSize> evolvePopulation(Population<popSize> &pop);
-};
-
-class FitnessCalc
-{
-  private: 
-    float solution;
-
-  public:
-    FitnessCalc(float startSolution=25):solution(startSolution){}
-    void setSolution(float newSolution=25);
-    float getFitness(Individual &individual);
-    template <byte popSize> static float getFittest(Population<popSize> &pop);
+    template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop);
 };
 
 template <byte popSize>
@@ -130,9 +132,15 @@ Population<popSize>::Population(int pinOut, int pinIn, bool initialize):pin1(pin
 }
 
 template <byte popSize>
-Individual Population<popSize>::getIndividual(byte index)
+Individual& Population<popSize>::getIndividual(byte index)
 {
   return individuals[index];  
+}
+
+template <byte popSize>
+Individual& Population<popSize>::getFittest()
+{
+  
 }
 
 template <byte popSize>
@@ -264,7 +272,7 @@ Individual Algorithm::tournamentSelection(Population<popSize> &pop)
 template <byte popSize>
 Population<popSize> Algorithm::evolvePopulation(Population<popSize> &pop)
 {
-  Population<popSize> newPop(false);
+  Population<popSize> newPop(pop.getPinOut(), pop.getPinIn(), false);
   byte elitismOffset=0;
 
   if (elitism)
@@ -275,7 +283,7 @@ Population<popSize> Algorithm::evolvePopulation(Population<popSize> &pop)
 
   Individual indiv1, indiv2, newIndiv;
   
-  for (int i=elitismOffset; i<pop.getSize(); i++)
+  for (byte i=elitismOffset; i<pop.getSize(); i++)
   {
     indiv1=tournamentSelection(pop);
     indiv2=tournamentSelection(pop);
@@ -283,9 +291,9 @@ Population<popSize> Algorithm::evolvePopulation(Population<popSize> &pop)
     newPop.saveIndividual(i, newIndiv);
   }
 
-  for (int i=elitismOffset; i<newPop.getSize(); i++)
+  for (byte j=elitismOffset; j<newPop.getSize(); j++)
   {
-    mutate(newPop.getIndividual(i));
+    mutate(newPop.getIndividual(j));
   }
 
   return newPop;
@@ -318,34 +326,42 @@ template <byte popSize>
 float FitnessCalc::getFittest(Population<popSize> &pop)
 {
   float maxFitness=0, currentFitness=0;
-  for (int i=0; i<popSize; i++)
+  for (byte i=0; i<pop.getSize(); i++)
   {
-    currentFitness=pop.getIndividual(i).getFitness();
+    currentFitness=this->getFitness(pop.getIndividual(i));
     if ((100-currentFitness) > maxFitness)
     {
         maxFitness=(100-currentFitness);
     }
-  }  
+  }
   return maxFitness;
 }
 
 /* BELOW IS THE ACTUAL RUNNING CODE */
 
-int trig1=9, echo1=10, trig2=12, echo2=13, generation=1;
+int trig1=9, echo1=10, generation=1;
+
+Population<10> Sensor(trig1, echo1, true);
+Algorithm algorithm;
+FitnessCalc fitnessCalc(25);
 
 void setup()
 {
   Serial.begin(9600);
-  Population<10> Sensor1(trig1, echo1, true);
-  Population<10> Sensor2(trig2, echo2, true);
 }
 
 void loop()
 {
-  while (FitnessCalc<Sensor1.getSize()>.getFittest(Sensor1)<95 && FitnessCalc<Sensor2.getSize()>.getFittest(Sensor2)<95)
+  do
   {
     Serial.println("Generation: " + generation);
 
+    Sensor=algorithm.evolvePopulation(Sensor);
+
     generation++;
-  }
+  } while((fitnessCalc.getFittest(Sensor)<95));
+
+  Serial.println("Solution!");
+  Serial.println("Solution's fitness is: " + Sensor.getMaxFitness());
+  Serial.println("");
 }
