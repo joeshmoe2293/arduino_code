@@ -34,12 +34,12 @@ namespace util
     
     static float (*performOp[])(float, float){add, sub, mult, div};
 
-    enum OPS
+    enum OPS:byte
     {
       ADD=0,
-      SUB,
-      MULT,
-      DIV
+      SUB=1,
+      MULT=2,
+      DIV=3
     };
   }
 }
@@ -52,36 +52,29 @@ class Individual
     static constexpr int defaultGeneLength=6;
     util::array<float, defaultGeneLength> genes;
     float generateRandomGene(byte index);
+    char convertToChar(byte op);
 
   public:
-    enum positionalValue
+    enum positionalValue:byte
     {
       MEASURED=0,
-      OP1,
-      CONSTANT1,
-      OP2,
-      CONSTANT2,
-      CONSTANT3
+      OP1=1,
+      CONSTANT1=2,
+      OP2=3,
+      CONSTANT2=4,
+      CONSTANT3=5
     };
 
     Individual():Individual(defaultOut, defaultIn){};
     Individual(int pinOut, int pinIn);
     void generateIndividual();
     float& getGene(byte index);
-    float getFitness()
-    {
-      if (fitness==0)
-      {
-        FitnessCalc fitnessCalc(25);
-        return fitnessCalc.getFitness(this);
-      }
-      return fitness;
-    }
     void setGene(byte index, float value);
     static constexpr int getSize() {return defaultGeneLength;}
     void getMeasured();
     int getPinOut() {return pin1;}
     int getPinIn() {return pin2;}
+    String toString();
 };
 
 template <byte populationSize>
@@ -93,7 +86,7 @@ class Population
   public:
     Population(int pinOut, int pinIn, bool initialize);
     Individual& getIndividual(byte index);
-    Individual getFittest();
+    Individual& getFittest();
     constexpr int getSize() {return populationSize;}
     void saveIndividual(byte index, Individual &indiv);
     int getPinOut() {return pin1;}
@@ -115,6 +108,19 @@ class Algorithm
 
   public:
     template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop);
+};
+
+class FitnessCalc
+{
+  private: 
+    float solution;
+
+  public:
+    FitnessCalc(float startSolution=25):solution(startSolution){}
+    void setSolution(float newSolution=25);
+    float getFitness(Individual &individual);
+    template <byte popSize> float getFittest(Population<popSize> &pop);
+    template <byte popSize> Individual* getFittest(Population<popSize> &pop, bool value);
 };
 
 template <byte popSize>
@@ -140,7 +146,15 @@ Individual& Population<popSize>::getIndividual(byte index)
 template <byte popSize>
 Individual& Population<popSize>::getFittest()
 {
-  
+  FitnessCalc fitnessCalc(25);
+  float maxFitness=fitnessCalc.getFittest(*this);
+  for (byte i=0; i<getSize(); i++)
+  {
+    if (fitnessCalc.getFitness(getIndividual(i))==maxFitness)
+    {
+      return getIndividual(i);
+    }
+  }
 }
 
 template <byte popSize>
@@ -165,24 +179,24 @@ void Individual::generateIndividual()
 
 float Individual::generateRandomGene(byte index)
 {
-	randomSeed(random(1000));
-	float gene;
+  randomSeed(random(1000));
+  float gene;
   
-	switch (index)
+  switch (index)
   {
-    case static_cast<byte>(OP1): case static_cast<byte>(OP2):
-      gene=static_cast<int>(random(4));
+    case Individual::OP1: case Individual::OP2:
+      gene=static_cast<float>(static_cast<byte>(random(4)));
       break;
-    case static_cast<byte>(MEASURED):
-      return genes[index]; // We don't want to generate a random value instead of using the measured one
-    case static_cast<byte>(CONSTANT3):
-      gene=static_cast<int>(random(10)+1);
+    case Individual::MEASURED:
+      return static_cast<float>(genes[index]); // We don't want to generate a random value instead of using the measured one
+    case Individual::CONSTANT3:
+      gene=static_cast<float>(static_cast<byte>(random(10)+1));
       break;
     default:
       gene=static_cast<float> (random(sizeof(byte)));
   }
   
-	return gene;
+  return gene;
 }
 
 float& Individual::getGene(byte index)
@@ -204,6 +218,33 @@ void Individual::getMeasured()
   digitalWrite(pin1, LOW);
 
   setGene(0, static_cast<float>(pulseIn(pin2, HIGH)));
+}
+
+char Individual::convertToChar(byte op)
+{
+  using namespace util;
+  switch(op)
+  {
+    case operations::ADD:
+      return '+';
+    case operations::SUB:
+      return '-';
+    case operations::MULT:
+      return '*';
+    case operations::DIV:
+      return '/';
+  }
+}
+
+String Individual::toString()
+{
+  String measured(getGene(MEASURED), 3);
+  String operation1(convertToChar(getGene(OP1)));
+  String constant1(getGene(CONSTANT1));
+  String operation2(convertToChar(getGene(OP2)));
+  String constant2(getGene(CONSTANT2));
+  String constant3(getGene(CONSTANT3));
+  return String("((" + measured + operation1 + constant1 + ")" + operation2 + constant2 + ") " + constant3 + " times");
 }
 
 Individual Algorithm::crossover(Individual &indiv1, Individual &indiv2)
@@ -258,7 +299,7 @@ template <byte popSize>
 Individual Algorithm::tournamentSelection(Population<popSize> &pop)
 {
   randomSeed(random(1000));
-  Population<popSize> tournamentPop(false);
+  Population<popSize> tournamentPop(pop.getPinOut(), pop.getPinIn(), false);
   for (byte i=0; i<popSize; i++)
   {
     byte randID=static_cast<int>(random()*popSize);
@@ -308,16 +349,16 @@ float FitnessCalc::getFitness(Individual &indiv)
 {
   using namespace util;
   float fitness=0, calculated=0;
-  auto OP1=static_cast<byte>(indiv.getGene(Individual::OP1));
-  auto OP2=static_cast<byte>(indiv.getGene(Individual::OP2));
+  byte OP1=static_cast<byte>(indiv.getGene(Individual::OP1));
+  byte OP2=static_cast<byte>(indiv.getGene(Individual::OP2));
   auto func1=operations::performOp[OP1];
   auto func2=operations::performOp[OP2];
-  for (byte i=0; i<indiv.getGene(static_cast<byte>(Individual::CONSTANT3)); i++)
+  for (byte i=0; i<indiv.getGene(Individual::CONSTANT3); i++)
   {
     indiv.getMeasured();
     calculated+=func2(func1(indiv.getGene(Individual::MEASURED), indiv.getGene(Individual::CONSTANT1)), indiv.getGene(Individual::CONSTANT2));
   }
-  calculated/=indiv.getGene(static_cast<byte>(Individual::CONSTANT3));
+  calculated/=indiv.getGene(Individual::CONSTANT3);
 
   return abs(calculated-solution);
 }
@@ -358,10 +399,17 @@ void loop()
 
     Sensor=algorithm.evolvePopulation(Sensor);
 
+    Serial.println("Best solution so far: ");
+    Serial.println(fitnessCalc.getFittest(Sensor));
+    Serial.println("With a formula of: ");
+    Serial.println(Sensor.getFittest().toString());
+
     generation++;
   } while((fitnessCalc.getFittest(Sensor)<95));
 
   Serial.println("Solution!");
-  Serial.println("Solution's fitness is: " + Sensor.getMaxFitness());
-  Serial.println("");
+  Serial.println("Best solution's fitness is: ");
+  Serial.println(fitnessCalc.getFittest(Sensor));
+  Serial.println("Solution's formula is: ");
+  Serial.println(Sensor.getFittest().toString());
 }
