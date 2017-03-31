@@ -1,5 +1,5 @@
-#define defaultOut 12
-#define defaultIn 13
+#define defaultOut 9
+#define defaultIn 10
 
 /* Class structure based on code provided at:
 http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ 
@@ -146,10 +146,13 @@ Individual& Population<popSize>::getIndividual(byte index)
 template <byte popSize>
 Individual& Population<popSize>::getFittest()
 {
+  Serial.println("Fitness calc initialized");
   FitnessCalc fitnessCalc(25);
+  Serial.println("Getting result from fitnessCalc.getFittest()");
   float maxFitness=fitnessCalc.getFittest(*this);
   for (byte i=0; i<getSize(); i++)
   {
+    Serial.println("Getting fitness of individual " + (i+1));
     if (fitnessCalc.getFitness(getIndividual(i))==maxFitness)
     {
       return getIndividual(i);
@@ -179,23 +182,29 @@ void Individual::generateIndividual()
 
 float Individual::generateRandomGene(byte index)
 {
+  Serial.println("Generating an RNG");
   randomSeed(random(1000));
   float gene;
-  
+
+  Serial.print("For gene ");
+  Serial.print(index);
+  Serial.println(" the randomly generated value is: ");
   switch (index)
   {
     case Individual::OP1: case Individual::OP2:
       gene=static_cast<float>(static_cast<byte>(random(4)));
       break;
     case Individual::MEASURED:
-      return static_cast<float>(genes[index]); // We don't want to generate a random value instead of using the measured one
+      gene=static_cast<float>(genes[index]); // We don't want to generate a random value instead of using the measured one
+      break;
     case Individual::CONSTANT3:
       gene=static_cast<float>(static_cast<byte>(random(10)+1));
       break;
     default:
-      gene=static_cast<float> (random(sizeof(byte)));
+      gene=static_cast<float>(random(sizeof(byte))+1);
   }
-  
+  Serial.println(gene);
+  delay(20);
   return gene;
 }
 
@@ -217,7 +226,7 @@ void Individual::getMeasured()
   delayMicroseconds(5);
   digitalWrite(pin1, LOW);
 
-  setGene(0, static_cast<float>(pulseIn(pin2, HIGH)));
+  setGene(0, 1409); // FIX THIS LATER
 }
 
 char Individual::convertToChar(byte op)
@@ -272,71 +281,96 @@ Individual Algorithm::crossover(Individual &indiv1, Individual &indiv2)
 
 void Algorithm::mutate(Individual &indiv)
 {
+  Serial.println("Generating RNG");
   randomSeed(random(1000));
   float randomVal, newOp;
-  
+
+  Serial.println("Begining random gene generation");
   for (byte i=1; i<indiv.getSize(); i++)
   {
-    randomVal=static_cast<float>(random());
+    Serial.println("Random value:");
+    randomVal=static_cast<float>(random(1));
+    Serial.println(randomVal);
 
     if (randomVal<mutationRate)
     {
+      Serial.println("MUTATION");
       switch (i)
       {
-        case static_cast<byte>(Individual::OP1):
-        case static_cast<byte>(Individual::OP2):
-          newOp=((static_cast<byte>(indiv.getGene(i)))%2==0)?indiv.getGene(i)+1:indiv.getGene(i)-1;
+        case Individual::OP1:
+        case Individual::OP2:
+          newOp=static_cast<byte>(random(4));
           indiv.setGene(i, newOp);
           break;
+        case Individual::CONSTANT3:
+          newOp=static_cast<byte>(random(10)+1);
         default:
-          indiv.setGene(i, static_cast<float>(random(sizeof(float))));
+          indiv.setGene(i, static_cast<float>(random(sizeof(byte))));
       }
     }
   }
+  Serial.println("Returning from mutate method");
 }
 
 template <byte popSize>
 Individual Algorithm::tournamentSelection(Population<popSize> &pop)
 {
+  Serial.println("Generating random number generator...");
   randomSeed(random(1000));
+  Serial.println("Generating tournamentPop...");
   Population<popSize> tournamentPop(pop.getPinOut(), pop.getPinIn(), false);
+  Serial.println("Generating tournament population...");
   for (byte i=0; i<popSize; i++)
   {
     byte randID=static_cast<int>(random()*popSize);
     tournamentPop.saveIndividual(i, pop.getIndividual(randID));
   }
 
+  Serial.println("Getting fittest");
   Individual fittest=tournamentPop.getFittest();
+  Serial.println("Returning fittest from tournamentSelection");
   return fittest;
 }
 
 template <byte popSize>
 Population<popSize> Algorithm::evolvePopulation(Population<popSize> &pop)
 {
+  Serial.println("Generating newPop...");
   Population<popSize> newPop(pop.getPinOut(), pop.getPinIn(), false);
   byte elitismOffset=0;
 
+  Serial.println("Elitism: ");
+  Serial.println(elitism);
   if (elitism)
   {
+    Serial.println("Saving result of pop.getFittest()");
     newPop.saveIndividual(0, pop.getFittest());
     elitismOffset=1;
   }
 
+  Serial.println("Generating individuals in evolvePopulation...");
   Individual indiv1, indiv2, newIndiv;
-  
+
+  Serial.println("Beginning selection process");
   for (byte i=elitismOffset; i<pop.getSize(); i++)
   {
+    Serial.println("Getting individual 1");
     indiv1=tournamentSelection(pop);
+    Serial.println("Getting individual 2");
     indiv2=tournamentSelection(pop);
+    Serial.println("Crossing over...");
     newIndiv=crossover(indiv1, indiv2);
+    Serial.println("Saving individual...");
     newPop.saveIndividual(i, newIndiv);
   }
 
+  Serial.println("Mutating...");
   for (byte j=elitismOffset; j<newPop.getSize(); j++)
   {
     mutate(newPop.getIndividual(j));
   }
 
+  Serial.println("Returning newPop...");
   return newPop;
 }
 
@@ -347,19 +381,33 @@ void FitnessCalc::setSolution(float newSolution)
 
 float FitnessCalc::getFitness(Individual &indiv)
 {
+  Serial.println("In fitnessCalc.getFitness()");
   using namespace util;
   float fitness=0, calculated=0;
   byte OP1=static_cast<byte>(indiv.getGene(Individual::OP1));
+  Serial.print("OP1 is ");
+  Serial.println(OP1);
   byte OP2=static_cast<byte>(indiv.getGene(Individual::OP2));
+  Serial.print("OP2 is ");
+  Serial.println(OP2);
   auto func1=operations::performOp[OP1];
+  Serial.print("Setting func1...");
   auto func2=operations::performOp[OP2];
+  Serial.print("Setting func2...");
   for (byte i=0; i<indiv.getGene(Individual::CONSTANT3); i++)
   {
     indiv.getMeasured();
+    Serial.print("func1(measured, constant1)=");
+    Serial.println(func1(indiv.getGene(Individual::MEASURED), indiv.getGene(Individual::CONSTANT1)));
+    Serial.print("func2(previous result)=");
+    Serial.println(func2(func1(indiv.getGene(Individual::MEASURED), indiv.getGene(Individual::CONSTANT1)), indiv.getGene(Individual::CONSTANT2)));
+    delay(20);
     calculated+=func2(func1(indiv.getGene(Individual::MEASURED), indiv.getGene(Individual::CONSTANT1)), indiv.getGene(Individual::CONSTANT2));
   }
   calculated/=indiv.getGene(Individual::CONSTANT3);
 
+  Serial.print("Returning fitness of: ");
+  Serial.println(abs(calculated-solution));
   return abs(calculated-solution);
 }
 
@@ -369,7 +417,7 @@ float FitnessCalc::getFittest(Population<popSize> &pop)
   float maxFitness=0, currentFitness=0;
   for (byte i=0; i<pop.getSize(); i++)
   {
-    currentFitness=this->getFitness(pop.getIndividual(i));
+    currentFitness=getFitness(pop.getIndividual(i));
     if ((100-currentFitness) > maxFitness)
     {
         maxFitness=(100-currentFitness);
@@ -380,7 +428,20 @@ float FitnessCalc::getFittest(Population<popSize> &pop)
 
 /* BELOW IS THE ACTUAL RUNNING CODE */
 
+int ping(int trig, int echo)
+{
+  digitalWrite(trig, LOW);
+  delay(2);
+  digitalWrite(trig, HIGH);
+  delay(5);
+  digitalWrite(trig, LOW);
+  delay(2);
+
+  return 1409;
+}
+
 int trig1=9, echo1=10, generation=1;
+bool foundSolution=false;
 
 Population<10> Sensor(trig1, echo1, true);
 Algorithm algorithm;
@@ -389,27 +450,44 @@ FitnessCalc fitnessCalc(25);
 void setup()
 {
   Serial.begin(9600);
+  pinMode(trig1, OUTPUT);
+  pinMode(echo1, INPUT);
+  pinMode(13, OUTPUT);
 }
 
 void loop()
 {
-  do
+  while(!foundSolution)
   {
+    Serial.print("Ping returns: ");
+    Serial.println(ping(trig1, echo1));
+    
     Serial.println("Generation: " + generation);
-
-    Sensor=algorithm.evolvePopulation(Sensor);
 
     Serial.println("Best solution so far: ");
     Serial.println(fitnessCalc.getFittest(Sensor));
     Serial.println("With a formula of: ");
     Serial.println(Sensor.getFittest().toString());
 
+    Sensor=algorithm.evolvePopulation(Sensor);
+
+    if ((fitnessCalc.getFittest(Sensor)>95))
+    {
+      Serial.println("Exiting loop");
+      foundSolution=true;
+    }
+
     generation++;
-  } while((fitnessCalc.getFittest(Sensor)<95));
+  }
 
   Serial.println("Solution!");
   Serial.println("Best solution's fitness is: ");
   Serial.println(fitnessCalc.getFittest(Sensor));
   Serial.println("Solution's formula is: ");
   Serial.println(Sensor.getFittest().toString());
+
+  digitalWrite(13, HIGH);
+  delay(1000);
+  digitalWrite(13, LOW);
+  delay(1000);
 }
