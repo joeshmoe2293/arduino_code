@@ -1,5 +1,4 @@
-#define defaultOut 9
-#define defaultIn 10
+#define defaultPin 9
 
 /* Class structure based on code provided at:
 http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beginners/ 
@@ -48,7 +47,7 @@ namespace util
 class Individual
 { 
   private:
-    int fitness=0, pin1, pin2;
+    int fitness=0, _pin;
     static constexpr int defaultGeneLength=6;
     util::array<float, defaultGeneLength> genes;
     float generateRandomGene(byte index);
@@ -65,15 +64,14 @@ class Individual
       CONSTANT3=5
     };
 
-    Individual():Individual(defaultOut, defaultIn){};
-    Individual(int pinOut, int pinIn);
+    Individual():Individual(defaultPin){};
+    Individual(int pinOut);
     void generateIndividual();
     float& getGene(byte index);
     void setGene(byte index, float value);
     static constexpr int getSize() {return defaultGeneLength;}
     void getMeasured();
-    int getPinOut() {return pin1;}
-    int getPinIn() {return pin2;}
+    int getPin() {return _pin;}
     String toString();
 };
 
@@ -82,17 +80,14 @@ class Population
 {
   private:
     util::array<Individual, populationSize> individuals;
-    int pin1, pin2;
+    int _pin;
   public:
-    Population(int pinOut, int pinIn, bool initialize);
+    Population(int pin, bool initialize);
     Individual& getIndividual(byte index);
     Individual& getFittest();
     constexpr int getSize() {return populationSize;}
     void saveIndividual(byte index, Individual &indiv);
-    int getPinOut() {return pin1;}
-    int getPinIn() {return pin2;}
-    //const Individual* begin() const {return &individuals[0];}
-    //const Individual* end() const {return &individuals[0]+individuals.getSize();}
+		int getPin() {return _pin;}
 };
 
 class Algorithm
@@ -124,13 +119,13 @@ class FitnessCalc
 };
 
 template <byte popSize>
-Population<popSize>::Population(int pinOut, int pinIn, bool initialize):pin1(pinOut),pin2(pinIn)
+Population<popSize>::Population(int pin, bool initialize):_pin(pin)
 {
   if (initialize)
   {
     for (int i=0; i<(individuals.getSize()); i++)
     {
-      Individual newIndividual(pin1, pin2);
+      Individual newIndividual(pin);
       newIndividual.generateIndividual();
       saveIndividual(i, newIndividual); 
     }
@@ -166,10 +161,9 @@ void Population<popSize>::saveIndividual(byte index, Individual &indiv)
   individuals[index]=indiv;
 }
 
-Individual::Individual(int pinOut, int pinIn):pin1(pinOut), pin2(pinIn)
+Individual::Individual(int pin):_pin(pin)
 {
-  pinMode(pin1, OUTPUT);
-  pinMode(pin2, INPUT);
+  pinMode(pin, OUTPUT);
 }
 
 void Individual::generateIndividual()
@@ -201,7 +195,7 @@ float Individual::generateRandomGene(byte index)
       gene=static_cast<float>(static_cast<byte>(random(10)+1));
       break;
     default:
-      gene=static_cast<float>(random(sizeof(byte))+1);
+      gene=static_cast<float>(random(1, 256)); // Basically a byte, just to make sure that it's not going to be some RIDICULOUSLY big or weird number...
   }
   Serial.println(gene);
   delay(20);
@@ -220,11 +214,11 @@ void Individual::setGene(byte index, float value)
 
 void Individual::getMeasured()
 {
-  digitalWrite(pin1, LOW);
+  digitalWrite(_pin, LOW);
   delayMicroseconds(2);
-  digitalWrite(pin1, HIGH);
+  digitalWrite(_pin, HIGH);
   delayMicroseconds(5);
-  digitalWrite(pin1, LOW);
+  digitalWrite(_pin, LOW);
 
   setGene(0, 1409); // FIX THIS LATER
 }
@@ -249,10 +243,10 @@ String Individual::toString()
 {
   String measured(getGene(MEASURED), 3);
   String operation1(convertToChar(getGene(OP1)));
-  String constant1(getGene(CONSTANT1));
+  String constant1(getGene(CONSTANT1), 3);
   String operation2(convertToChar(getGene(OP2)));
-  String constant2(getGene(CONSTANT2));
-  String constant3(getGene(CONSTANT3));
+  String constant2(getGene(CONSTANT2), 3);
+  String constant3(getGene(CONSTANT3), 3);
   return String("((" + measured + operation1 + constant1 + ")" + operation2 + constant2 + ") " + constant3 + " times");
 }
 
@@ -318,7 +312,7 @@ Individual Algorithm::tournamentSelection(Population<popSize> &pop)
   Serial.println("Generating random number generator...");
   randomSeed(random(1000));
   Serial.println("Generating tournamentPop...");
-  Population<popSize> tournamentPop(pop.getPinOut(), pop.getPinIn(), false);
+  Population<popSize> tournamentPop(pop.getPin(), false);
   Serial.println("Generating tournament population...");
   for (byte i=0; i<popSize; i++)
   {
@@ -336,7 +330,7 @@ template <byte popSize>
 Population<popSize> Algorithm::evolvePopulation(Population<popSize> &pop)
 {
   Serial.println("Generating newPop...");
-  Population<popSize> newPop(pop.getPinOut(), pop.getPinIn(), false);
+  Population<popSize> newPop(pop.getPin(), false);
   byte elitismOffset=0;
 
   Serial.println("Elitism: ");
@@ -428,30 +422,29 @@ float FitnessCalc::getFittest(Population<popSize> &pop)
 
 /* BELOW IS THE ACTUAL RUNNING CODE */
 
-int ping(int trig, int echo)
+int ping(int pin)
 {
-  digitalWrite(trig, LOW);
+  digitalWrite(pin, LOW);
   delay(2);
-  digitalWrite(trig, HIGH);
+  digitalWrite(pin, HIGH);
   delay(5);
-  digitalWrite(trig, LOW);
+  digitalWrite(pin, LOW);
   delay(2);
 
   return 1409;
 }
 
-int trig1=9, echo1=10, generation=1;
+int pin=9, generation=1;
 bool foundSolution=false;
 
-Population<10> Sensor(trig1, echo1, true);
+Population<10> Sensor(pin, true);
 Algorithm algorithm;
 FitnessCalc fitnessCalc(25);
 
 void setup()
 {
   Serial.begin(9600);
-  pinMode(trig1, OUTPUT);
-  pinMode(echo1, INPUT);
+  pinMode(pin, OUTPUT);
   pinMode(13, OUTPUT);
 }
 
@@ -460,7 +453,7 @@ void loop()
   while(!foundSolution)
   {
     Serial.print("Ping returns: ");
-    Serial.println(ping(trig1, echo1));
+    Serial.println(ping(pin));
     
     Serial.println("Generation: " + generation);
 

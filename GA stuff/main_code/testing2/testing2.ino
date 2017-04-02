@@ -85,13 +85,26 @@ class Population
   public:
     Population(int pinOut, int pinIn, bool initialize);
     Individual& getIndividual(byte index);
-    Individual getFittest();
+    Individual* getFittest();
     constexpr int getSize() {return populationSize;}
     void saveIndividual(byte index, Individual &indiv);
     int getPinOut() {return pin1;}
     int getPinIn() {return pin2;}
     //const Individual* begin() const {return &individuals[0];}
     //const Individual* end() const {return &individuals[0]+individuals.getSize();}
+};
+
+class FitnessCalc
+{
+  private: 
+    float solution;
+
+  public:
+    FitnessCalc(float startSolution=25):solution(startSolution){}
+    void setSolution(float newSolution=25);
+    float getFitness(Individual &individual);
+    template <byte popSize> float getFittest(Population<popSize> &pop);
+    template <byte popSize> Individual* getFittest(Population<popSize> &pop, bool value);
 };
 
 class Algorithm
@@ -107,19 +120,6 @@ class Algorithm
 
   public:
     template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop);
-};
-
-class FitnessCalc
-{
-  private: 
-    float solution;
-
-  public:
-    FitnessCalc(float startSolution=25):solution(startSolution){}
-    void setSolution(float newSolution=25);
-    float getFitness(Individual &individual);
-    template <byte popSize> float getFittest(Population<popSize> &pop);
-    template <byte popSize> Individual* getFittest(Population<popSize> &pop, bool value)
 };
 
 template <byte popSize>
@@ -143,7 +143,7 @@ Individual& Population<popSize>::getIndividual(byte index)
 }
 
 template <byte popSize>
-Individual& Population<popSize>::getFittest()
+Individual* Population<popSize>::getFittest()
 {
   
 }
@@ -177,11 +177,13 @@ float Individual::generateRandomGene(byte index)
   {
     case static_cast<byte>(OP1): case static_cast<byte>(OP2):
       gene=static_cast<int>(random(4));
+      gene=static_cast<float>(gene);
       break;
     case static_cast<byte>(MEASURED):
       return genes[index]; // We don't want to generate a random value instead of using the measured one
     case static_cast<byte>(CONSTANT3):
       gene=static_cast<int>(random(10)+1);
+      gene=static_cast<float>(gene);
       break;
     default:
       gene=static_cast<float> (random(sizeof(byte)));
@@ -322,7 +324,7 @@ float FitnessCalc::getFitness(Individual &indiv)
     indiv.getMeasured();
     calculated+=func2(func1(indiv.getGene(Individual::MEASURED), indiv.getGene(Individual::CONSTANT1)), indiv.getGene(Individual::CONSTANT2));
   }
-  calculated/=indiv.getGene(static_cast<byte>(Individual::CONSTANT3));
+  calculated/=indiv.getGene(static_cast<float>(Individual::CONSTANT3));
 
   return abs(calculated-solution);
 }
@@ -354,7 +356,7 @@ Individual* FitnessCalc::getFittest(Population<popSize> &pop, bool value)
     if ((100-currentFitness)>maxFitness)
     {
       maxFitness=(100-currentFitness);
-      fittest=&pop,getIndividual(i);
+      fittest=&(pop,getIndividual(i));
     }
   }
   return fittest;
@@ -385,7 +387,7 @@ void loop()
   } while((fitnessCalc.getFittest(Sensor)<95));
 
   Serial.println("Solution!");
-  Serial.println("Solution's fitness is: " + Sensor.getMaxFitness());
-  Serial.println("Solution at: " + fitnessCalc.getMaxFitness(Sensor, true));
-  Serial.println("With a value of " + *fitnessCalc.getMaxFitness(Sensor, true));
+  Serial.println("Solution's fitness is: " + fitnessCalc.getFittest(Sensor));
+  Serial.println("Solution at: " + fitnessCalc.getFittest(Sensor, true));
+  Serial.println("With a value of " + *fitnessCalc.getFittest(Sensor, true));
 }
