@@ -93,8 +93,8 @@ class Population
 class Algorithm
 {
   private:
-    static constexpr float uniformRate=0.5, mutationRate=0.015;
-    static constexpr boolean elitism=true;
+    static constexpr float mutationRate=0.015;
+    static constexpr bool elitism=true;
     static constexpr int tournamentSize=10;
 
     static Individual crossover(Individual &indiv1, Individual &indiv2);
@@ -220,6 +220,12 @@ void Individual::getMeasured()
   delayMicroseconds(5);
   digitalWrite(_pin, LOW);
 
+  pinMode(_pin, INPUT);
+
+  float result=pulseIn(_pin, HIGH);
+
+  pinMode(_pin, OUTPUT);
+
   setGene(0, 1409); // FIX THIS LATER
 }
 
@@ -258,7 +264,7 @@ Individual Algorithm::crossover(Individual &indiv1, Individual &indiv2)
 
   for (byte i=0; i<indiv1.getSize(); i++)
   {
-    randomVal=static_cast<float>(random());
+    randomVal=static_cast<float>(random(1));
 
     if (randomVal<mutationRate)
     {
@@ -316,7 +322,7 @@ Individual Algorithm::tournamentSelection(Population<popSize> &pop)
   Serial.println("Generating tournament population...");
   for (byte i=0; i<popSize; i++)
   {
-    byte randID=static_cast<int>(random()*popSize);
+    byte randID=static_cast<int>(random(1)*popSize);
     tournamentPop.saveIndividual(i, pop.getIndividual(randID));
   }
 
@@ -422,7 +428,7 @@ float FitnessCalc::getFittest(Population<popSize> &pop)
 
 /* BELOW IS THE ACTUAL RUNNING CODE */
 
-int ping(int pin)
+float ping(int pin)
 {
   digitalWrite(pin, LOW);
   delay(2);
@@ -431,13 +437,19 @@ int ping(int pin)
   digitalWrite(pin, LOW);
   delay(2);
 
+  pinMode(pin, INPUT);
+  
+  float result=static_cast<float>(pulseIn(pin, HIGH));
+
+  pinMode(pin, OUTPUT);
+
   return 1409;
 }
 
 int pin=9, generation=1;
 bool foundSolution=false;
 
-Population<10> Sensor(pin, true);
+Population<4> Sensor(pin, true);
 Algorithm algorithm;
 FitnessCalc fitnessCalc(25);
 
@@ -446,10 +458,12 @@ void setup()
   Serial.begin(9600);
   pinMode(pin, OUTPUT);
   pinMode(13, OUTPUT);
+
+  Serial.println("Starting...");
 }
 
 void loop()
-{
+{ 
   while(!foundSolution)
   {
     Serial.print("Ping returns: ");
