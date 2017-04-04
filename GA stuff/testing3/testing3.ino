@@ -62,9 +62,9 @@ class Individual
     
     void generateGene(byte index)
     {
-      Serial.println("GENERATING GENE AT " + index);
+      //Serial.println("GENERATING GENE AT " + index);
       
-      randomSeed(random(1000));
+      randomSeed(analogRead(A0));
 
       int gene;
       
@@ -77,13 +77,25 @@ class Individual
           gene=random(10)+1;
           break;
         default:
-          gene=random(1, 1000);
+          gene=random(1, 256);
       }
 
-      Serial.println("WITH A VALUE OF " + gene);
+      //Serial.println("WITH A VALUE OF " + gene);
       genes[index]=gene;
     }
     
+  public:
+    void generateIndividual()
+    {
+      Serial.println("GENERATING GENES!!!");
+      for (byte i=1; i<6; i++) // Gene 0 is the measured value, so we don't randomly generate that
+      {
+        generateGene(i);
+      }
+    }
+
+    void setGene(byte index, int value) {genes[index]=value;}
+
     char convertToChar(int op) const
     {
       switch(op)
@@ -96,16 +108,6 @@ class Individual
           return '*';
         case 3:
           return '/';
-      }
-    }
-    
-  public:
-    void generateIndividual()
-    {
-      Serial.println("GENERATING GENES!!!");
-      for (byte i=1; i<6; i++) // Gene 0 is the measured value, so we don't randomly generate that
-      {
-        generateGene(i);
       }
     }
 
@@ -144,7 +146,7 @@ class Population
       if (initialize)
       {
         Serial.println("Generating Individuals!");
-        for (byte i=0; i<individuals.getSize(); i++)
+        for (byte i=0; i<popSize; i++)
         {
           individuals[i].generateIndividual();
         }
@@ -155,20 +157,20 @@ class Population
 
     constexpr byte getSize() {return popSize;}
 
-    void saveIndividual(byte index, Individual indiv) {at(index)=indiv;}
+    void saveIndividual(byte index, Individual indiv) {individuals[index]=indiv;}
 };
 
 class Algorithm
 {
   private:
-    byte mutationRate=2, solution=25, maxFitness=100; // When a number will be generated later, if it's less than this, mutation happens
+    byte mutationRate=10, solution=25, maxFitness=100; // When a number will be generated later, if it's less than this, mutation happens
     bool elitism;
-    byte tournamentSize;
+    constexpr static byte tournamentSize=2;
 
     Individual crossover(Individual &indiv1, Individual &indiv2)
     {
       Serial.println("In crossover()");
-      randomSeed(random(1000));
+      randomSeed(analogRead(A0));
       Individual result;
       byte randomVal;
 
@@ -190,7 +192,7 @@ class Algorithm
     void mutate(Individual &indiv)
     {
       Serial.println("In mutate()");
-      randomSeed(random(1000));
+      randomSeed(analogRead(A0));
 
       byte randomVal;
 
@@ -222,7 +224,7 @@ class Algorithm
       Serial.println("In getFitness()");
       float result=0;
 
-      Serial.print("Value measured is: ");
+      /*Serial.print("Value measured is: ");
       Serial.println(indiv.at(0));
       Serial.print("OP1 is: ");
       Serial.println(indiv.at(1));
@@ -233,14 +235,18 @@ class Algorithm
       Serial.print("CONST2 is: ");
       Serial.println(indiv.at(4));
       Serial.print("Times repeated is: ");
-      Serial.println(indiv.at(5));
+      Serial.println(indiv.at(5));*/
       for (byte i=0; i<indiv.at(5); i++) // Index 5 in genes is the number of times the reading should be taken
       {
         indiv.at(0)=getMeasurement(PIN);
-        float addedTerm=operations::performOp(indiv.at(3), (operations::performOp(indiv.at(1), indiv.at(0), indiv.at(2))), indiv.at(4));
+        float op1=operations::performOp(indiv.at(1), indiv.at(0), indiv.at(2));
+        Serial.println("Formula:");
+        Serial.println(String(indiv.at(0))+indiv.convertToChar(indiv.at(1))+String(indiv.at(2))+"="+String(op1));
+        float addedTerm=operations::performOp(indiv.at(3), op1, indiv.at(4));
         result+=addedTerm;
-        Serial.print("Added ");
-        Serial.println(addedTerm);
+        Serial.println(String(op1)+indiv.convertToChar(indiv.at(3))+String(indiv.at(4))+"="+String(addedTerm));
+        //Serial.print("Added ");
+        //Serial.println(addedTerm);
       }
       result/=indiv.at(5);
       Serial.print("Result=");
@@ -251,8 +257,8 @@ class Algorithm
 
     template <byte popSize> Individual getFittest(Population<popSize> &pop)
     {
-      Serial.println("In getFittest()");
-      float fitness=0, maxFitness=0;
+      //Serial.println("In getFittest()");
+      float fitness=100, maxFitness=getFitness(pop.at(0));
       byte fittestIndex=0;
       
       for (byte i=0; i<popSize; i++)
@@ -260,10 +266,10 @@ class Algorithm
         fitness=getFitness(pop.at(i));
         Serial.print("Fitness of indivdiual ");
         Serial.print(i);
-        Serial.print(" is");
+        Serial.print(" is ");
         Serial.println(fitness);
 
-        if (fitness>=maxFitness)
+        if (fitness<maxFitness)
         {
           Serial.println("NEW MAX FITNESS!!!");
           maxFitness=fitness;
@@ -277,14 +283,14 @@ class Algorithm
     template <byte popSize> Individual tournamentSelection(Population<popSize> &pop)
     {
       Serial.println("In tournamentSelection()");
-      randomSeed(random(1000));
+      randomSeed(analogRead(A0));
 
-      Population<popSize> tournamentPop(false);
+      Population<tournamentSize> tournamentPop(false);
 
       for (byte i=0; i<popSize; i++)
       {
         byte randomID=random(popSize);
-        Serial.println("ID chosen at random is: " + randomID);
+        Serial.println("ID chosen at random is: " + String(randomID));
         
         tournamentPop.saveIndividual(i, pop.at(randomID));
       }
@@ -311,7 +317,9 @@ class Algorithm
       Serial.println("Beginning tournament selection...");
       for (byte i=elitismOffset; i<popSize; i++)
       {
+        Serial.println("Tournament Selection " + String(i));
         Individual indiv1=tournamentSelection(pop);
+        Serial.println("Tournament Selection " + String(i+1));
         Individual indiv2=tournamentSelection(pop);
         Individual crossed=crossover(indiv1, indiv2);
         newPop.saveIndividual(i, crossed);
@@ -327,13 +335,30 @@ class Algorithm
     }
 };
 
-Population<5> formulae(true);
 Algorithm alg;
+Population<5> formulae(true);
 int led=13, generation=1;
 bool foundSolution=false;
 
+void blink()
+{
+  digitalWrite(led, HIGH);
+  delay(250);
+  digitalWrite(led, LOW);
+  delay(250);
+  digitalWrite(led, HIGH);
+  delay(250);
+  digitalWrite(led, LOW);
+  delay(250);
+}
+
 void setup() 
 {
+  for (byte i=0; i<formulae.getSize(); i++)
+  {
+    formulae.at(i).setGene(0, getMeasurement(PIN));
+  }
+  
   Serial.begin(9600);
   pinMode(PIN, OUTPUT);
   pinMode(led, OUTPUT);
@@ -343,11 +368,20 @@ void loop()
 {
   while(!foundSolution)
   {
-    digitalWrite(led, HIGH);
-    delay(1000);
+    for (byte i=0; i<formulae.getSize(); i++)
+    {
+      Serial.print("Formulae ");
+      Serial.print(i);
+      Serial.print(" has a formula of ");
+      Serial.println(formulae.at(i).toString());
+    }
+    
+    blink();
     
     Serial.print("Ping returns: ");
     Serial.println(getMeasurement(PIN));
+
+    blink();
 
     Serial.println("Generation: " + generation);
 
@@ -356,11 +390,13 @@ void loop()
     Serial.print("With a fitness of: ");
     Serial.println(alg.getFitness(alg.getFittest(formulae)));
 
+    blink();
+  
     formulae=alg.evolvePopulation(formulae);
 
-    digitalWrite(led, LOW);
+    blink();
 
-    if (alg.getFitness(alg.getFittest(formulae))>95)
+    if (alg.getFitness(alg.getFittest(formulae))<5)
     {
       Serial.println("Exiting loop!");
       foundSolution=true;
@@ -369,6 +405,8 @@ void loop()
     generation++;
   }
 
+  blink();
+
   Serial.println("\n\n\n");
 
   Serial.print("Final Solution's fitness is: ");
@@ -376,8 +414,7 @@ void loop()
   Serial.print("And it's formula is: ");
   Serial.println(alg.getFittest(formulae).toString());
 
-  digitalWrite(led, HIGH);
-  delay(250);
-  digitalWrite(led, LOW);
-  delay(250);
+  blink();
 }
+
+/*NOTE, good solution generated was: ((measured-159)/55) 8 times*/
