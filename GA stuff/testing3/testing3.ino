@@ -224,18 +224,6 @@ class Algorithm
       Serial.println("In getFitness()");
       float result=0;
 
-      /*Serial.print("Value measured is: ");
-      Serial.println(indiv.at(0));
-      Serial.print("OP1 is: ");
-      Serial.println(indiv.at(1));
-      Serial.print("CONST1 is: ");
-      Serial.println(indiv.at(2));
-      Serial.print("OP2 is: ");
-      Serial.println(indiv.at(3));
-      Serial.print("CONST2 is: ");
-      Serial.println(indiv.at(4));
-      Serial.print("Times repeated is: ");
-      Serial.println(indiv.at(5));*/
       for (byte i=0; i<indiv.at(5); i++) // Index 5 in genes is the number of times the reading should be taken
       {
         indiv.at(0)=getMeasurement(PIN);
