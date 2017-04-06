@@ -665,4 +665,4 @@ void loop()
 }
 
 /*NOTE, good solution generated was: ((measured-159)/55) 8 times
-also, (measured+144)/70 5 times, (measured+195)/80*/
+also, (measured+144)/70 5 times, (measured+195)/80, (measured/125)+12 6 times*/
