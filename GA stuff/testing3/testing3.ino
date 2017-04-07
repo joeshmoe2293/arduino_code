@@ -383,39 +383,56 @@ class Algorithm
       return fittest;
     }
 
-    template <byte popSize> Individual rouletteSelection(Population<popSize> &pop)
+    float getAdjustedFitness(Individual &indiv)
+    {
+      float fitness=getFitness(indiv);
+      if (fitness<threshold)
+      {
+        return -1;
+      }
+      return 1/fitness;
+    }
+
+    /* Stochastic Unviersal Sampling */
+    template <byte popSize> Individual susSelection(Population<popSize> &pop)
     {
       currentTime=millis();
-      Serial.println("In rouletteSelection()");
+      Serial.println("In susSelection()");
 
-      float totalFitness=0, partialFitness=0;
+      float wheel[popSize];
+      float totalFitness=0, partialFitness=0, start=random(1000/rouletteSize)/1000, pointerDistance, currentPosition;      
+      
+      for (byte i=0; i<popSize; i++)
+      {
+        partialFitness=getAdjustedFitness(pop.at(i));
+        if (partialFitness==-1)
+        {
+          return pop.at(i);
+        }
+        totalFitness+=partialFitness;
+        wheel[i]=totalFitness;
+      }
+
+      pointerDistance=1/rouletteSize;
+
       Population<rouletteSize> tournamentPop(false);
 
-      for (byte i=0; i<rouletteSize; i++)
+      byte j=0;
+      for (byte i=0; i<popSize-1; i++)
       {
-        byte randomID=static_cast<byte>(random(popSize));
-        tournamentPop.saveIndividual(i, pop.at(randomID));
-        partialFitness=getFitness(tournamentPop.at(i));
-
-        if (partialFitness<threshold)
+        currentPosition=start+pointerDistance*j;
+        if (currentPosition>wheel[i] && currentPosition<wheel[i+1])
         {
-          return tournamentPop.getIndividual(i);
-        }
-        
-        totalFitness+=partialFitness;
-      }
-
-      byte minBound=random(static_cast<int>(totalFitness/rouletteSize));
-      partialFitness=0;
-
-      for (byte i=rouletteSize-1; i>=0; i--)
-      {
-        partialFitness=getFitness(tournamentPop.at(i));
-        if (partialFitness<=minBound)
-        {
-          return tournamentPop.getIndividual(i);
+          tournamentPop.saveIndividual(j, pop.at(i));
+          j++;
         }
       }
+
+      Individual fittest=getFittest(tournamentPop);
+            
+      timeTaken+=static_cast<float>(millis()-currentTime);
+      
+      return fittest;
     }
 
     template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop, byte selectionType)
@@ -493,13 +510,13 @@ class Algorithm
           Serial.println("Beginning elitism selection...");
           for (byte i = elitismOffset; i < popSize; i++)
           {
-            Serial.println("Roulette Selection " + String(i));
-            Individual indiv1 = rouletteSelection(pop);
+            Serial.println("SUS Selection " + String(i));
+            Individual indiv1 = susSelection(pop);
     
             delay(100);
             
-            Serial.println("Roulette Selection " + String(i + 1));
-            Individual indiv2 = rouletteSelection(pop);
+            Serial.println("SUS Selection " + String(i + 1));
+            Individual indiv2 = susSelection(pop);
     
             delay(100);
             

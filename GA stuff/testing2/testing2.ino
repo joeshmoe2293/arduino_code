@@ -5,6 +5,7 @@ http://www.theprojectspot.com/tutorial-post/creating-a-genetic-algorithm-for-beg
 HUGE thanks to fenneking, artemism, and TheBev123 in the c-plusplus channel on the "Programming" Discord server
 for all the debugging and help*/
 
+#include <Entropy.h>
 #include "Arduino.h"
 
 namespace util
