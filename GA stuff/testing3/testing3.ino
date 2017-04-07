@@ -67,20 +67,18 @@ class Individual
     {
       //Serial.println("GENERATING GENE AT " + index);
 
-      randomSeed(random(analogRead(A4))^analogRead(A0));
-
       int gene;
 
       switch (index)
       {
         case 1: case 3:
-          gene = random(4);
+          gene=static_cast<int>(random(4));
           break;
         case 5:
-          gene = random(10) + 1;
+          gene=static_cast<int>(random(10) + 1);
           break;
         default:
-          gene = random(1, 256);
+          gene=static_cast<int>(random(1, 256));
       }
 
       //Serial.println("WITH A VALUE OF " + gene);
@@ -90,7 +88,7 @@ class Individual
   public:
     void generateIndividual()
     {
-      Serial.println("GENERATING GENES!!!");
+      //Serial.println("GENERATING GENES!!!");
       for (byte i = 1; i < 6; i++) // Gene 0 is the measured value, so we don't randomly generate that
       {
         generateGene(i);
@@ -162,6 +160,14 @@ class Population
       }
     }
 
+    void reset()
+    {
+      for (byte i=0; i<popSize; i++)
+      {
+        individuals[i].generateIndividual();
+      }
+    }
+
     Individual& at(byte index) {
       return individuals[index];
     }
@@ -173,25 +179,32 @@ class Population
     void saveIndividual(byte index, Individual indiv) {
       individuals[index] = indiv;
     }
+
+    Individual getIndividual(byte index)
+    {
+      return individuals[index];
+    }
 };
 
 class Algorithm
 {
   private:
-    byte mutationRate = 10, solution = 25, maxFitness = 100; // When a number will be generated later, if it's less than this, mutation happens
+    byte mutationRate = 10, solution = 25; // When a number will be generated later, if it's less than this, mutation happens
     bool elitism;
-    constexpr static byte tournamentSize = 3;
+    constexpr static byte tournamentSize = 3, elitismSize=2, rouletteSize=5, threshold=5;
+    byte numTimesRun=0;
+    unsigned long currentTime;
+    float timeTaken;
 
     Individual crossover(Individual &indiv1, Individual &indiv2)
     {
       Serial.println("In crossover()");
-      randomSeed(random(analogRead(A4))^analogRead(A0));
       Individual result;
       byte randomVal;
 
       for (byte i = 0; i < indiv1.getSize(); i++)
       {
-        randomVal = random(100); // Random value between 0 and 99, where 0 through 4 cause mutations
+        randomVal=static_cast<byte>(random(100)); // Random value between 0 and 99, where 0 through 4 cause mutations
 
         if (randomVal < mutationRate)
         {
@@ -209,13 +222,12 @@ class Algorithm
     void mutate(Individual &indiv)
     {
       Serial.println("In mutate()");
-      randomSeed(random(analogRead(A4))^analogRead(A0));
 
       byte randomVal;
 
       for (byte i = 1; i < indiv.getSize(); i++)
       {
-        randomVal = random(100);
+        randomVal=static_cast<byte>(random(100));
 
         if (randomVal < mutationRate)
         {
@@ -223,19 +235,36 @@ class Algorithm
           switch (i)
           {
             case 1: case 3:
-              indiv.setGene(i, random(4));
+              indiv.setGene(i, static_cast<int>(random(4)));
               break;
             case 5:
-              indiv.setGene(i, random(10) + 1);
+              indiv.setGene(i, static_cast<int>(random(10) + 1));
               break;
             default:
-              indiv.setGene(i, random(1, 256));
+              indiv.setGene(i, static_cast<int>(random(1, 256)));
           }
         }
       }
     }
 
   public:
+    void reset()
+    {
+      numTimesRun=0;
+      currentTime=0;
+      timeTaken=0;
+    }
+  
+    float getAvgRunTime()
+    {
+      return timeTaken/numTimesRun;
+    }
+
+    byte getThreshold()
+    {
+      return threshold;
+    }
+  
     float getFitness(Individual indiv)
     {
       Serial.println("In getFitness()");
@@ -269,14 +298,14 @@ class Algorithm
       for (byte i = 0; i < popSize; i++)
       {
         fitness = getFitness(pop.at(i));
-        Serial.print("Fitness of indivdiual ");
-        Serial.print(i);
-        Serial.print(" is ");
-        Serial.println(fitness);
+        //Serial.print("Fitness of indivdiual ");
+        //Serial.print(i);
+        //Serial.print(" is ");
+        //Serial.println(fitness);
 
         if (fitness < maxFitness)
         {
-          Serial.println("NEW MAX FITNESS!!!");
+          //Serial.println("NEW MAX FITNESS!!!");
           maxFitness = fitness;
           fittestIndex = i;
         }
@@ -285,16 +314,44 @@ class Algorithm
       return pop.at(fittestIndex);
     }
 
+    template <byte popSize> Individual getFittest(Population<popSize> &pop, Individual &ignored)
+    {
+      float fitness = 100, maxFitness = getFitness(pop.at(0)), ignoredFitness=getFitness(ignored);
+      byte fittestIndex = 0;
+
+      for (byte i=0; i<popSize; i++)
+      {
+        fitness=getFitness(pop.at(i));
+
+        if (fitness<=threshold)
+        {
+          return pop.getIndividual(i);
+        }
+
+        if (fitness==ignoredFitness)
+        {
+          continue;
+        }
+
+        if (fitness < maxFitness)
+        {
+          maxFitness=fitness;
+          fittestIndex=i;
+        }
+      }
+      return pop.getIndividual(fittestIndex);
+    }
+
     template <byte popSize> Individual tournamentSelection(Population<popSize> &pop)
     {
-      Serial.println("In tournamentSelection()");
-      randomSeed(random(analogRead(A4))^analogRead(A0));
+      currentTime=millis();
+      Serial.println("In tournamentSelection(), starting clock for measuring time taken...");
 
       Population<tournamentSize> tournamentPop(false);
 
       for (byte i = 0; i < tournamentSize; i++)
       {
-        byte randomID = random(popSize);
+        byte randomID=static_cast<byte>(random(popSize));
         Serial.println("ID chosen at random is: " + String(randomID));
 
         tournamentPop.saveIndividual(i, pop.at(randomID));
@@ -303,40 +360,156 @@ class Algorithm
       Individual fittest = getFittest(tournamentPop);
       Serial.println("We've gotten the fittest member of tournamentPop!");
 
+      timeTaken+=static_cast<float>(millis()-currentTime);
+      
       return fittest;
     }
 
-    template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop)
+    template <byte popSize> Individual elitismSelection(Population<popSize> &pop)
+    {
+      currentTime=millis();
+      Serial.println("In elitismSelection()");
+
+      Population<elitismSize> tournamentPop(false);
+
+      tournamentPop.saveIndividual(0, getFittest(pop));
+      tournamentPop.saveIndividual(1, getFittest(pop, tournamentPop.at(0)));
+
+      Individual fittest=getFittest(tournamentPop);
+      Serial.println("We've gotten the fittest member of elitismPop!");
+
+      timeTaken+=static_cast<float>(millis()-currentTime);
+      
+      return fittest;
+    }
+
+    template <byte popSize> Individual rouletteSelection(Population<popSize> &pop)
+    {
+      currentTime=millis();
+      Serial.println("In rouletteSelection()");
+
+      float totalFitness=0, partialFitness=0;
+      Population<rouletteSize> tournamentPop(false);
+
+      for (byte i=0; i<rouletteSize; i++)
+      {
+        byte randomID=static_cast<byte>(random(popSize));
+        tournamentPop.saveIndividual(i, pop.at(randomID));
+        partialFitness=getFitness(tournamentPop.at(i));
+
+        if (partialFitness<threshold)
+        {
+          return tournamentPop.getIndividual(i);
+        }
+        
+        totalFitness+=partialFitness;
+      }
+
+      byte minBound=random(static_cast<int>(totalFitness/rouletteSize));
+      partialFitness=0;
+
+      for (byte i=rouletteSize-1; i>=0; i--)
+      {
+        partialFitness=getFitness(tournamentPop.at(i));
+        if (partialFitness<=minBound)
+        {
+          return tournamentPop.getIndividual(i);
+        }
+      }
+    }
+
+    template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop, byte selectionType)
     {
       Serial.println("In evolvePopulation()");
       Population<popSize> newPop(false);
       byte elitismOffset = 0;
 
-      if (elitism)
+      switch(selectionType)
       {
-        Serial.println("Saving fittest individual...");
-        newPop.saveIndividual(0, getFittest(pop));
-        elitismOffset = 1;
-      }
-
-      Serial.println("Beginning tournament selection...");
-      for (byte i = elitismOffset; i < popSize; i++)
-      {
-        Serial.println("Tournament Selection " + String(i));
-        Individual indiv1 = tournamentSelection(pop);
-
-        delay(100);
-        
-        Serial.println("Tournament Selection " + String(i + 1));
-        Individual indiv2 = tournamentSelection(pop);
-
-        delay(100);
-        
-        Individual crossed = crossover(indiv1, indiv2);
-
-        delay(100);
-        
-        newPop.saveIndividual(i, crossed);
+        case 1:
+          if (elitism)
+          {
+            Serial.println("Saving fittest individual...");
+            newPop.saveIndividual(0, getFittest(pop));
+            elitismOffset = 1;
+          }
+    
+          Serial.println("Beginning tournament selection...");
+          for (byte i = elitismOffset; i < popSize; i++)
+          {
+            Serial.println("Tournament Selection " + String(i));
+            Individual indiv1 = tournamentSelection(pop);
+    
+            delay(100);
+            
+            Serial.println("Tournament Selection " + String(i + 1));
+            Individual indiv2 = tournamentSelection(pop);
+    
+            delay(100);
+            
+            Individual crossed = crossover(indiv1, indiv2);
+    
+            delay(100);
+            
+            newPop.saveIndividual(i, crossed);
+          }
+          break;
+        case 2:
+          if (elitism)
+          {
+            Serial.println("Saving fittest individual...");
+            newPop.saveIndividual(0, getFittest(pop));
+            elitismOffset = 1;
+          }
+    
+          Serial.println("Beginning elitism selection...");
+          for (byte i = elitismOffset; i < popSize; i++)
+          {
+            Serial.println("Elitism Selection " + String(i));
+            Individual indiv1 = elitismSelection(pop);
+    
+            delay(100);
+            
+            Serial.println("Elitism Selection " + String(i + 1));
+            Individual indiv2 = elitismSelection(pop);
+    
+            delay(100);
+            
+            Individual crossed = crossover(indiv1, indiv2);
+    
+            delay(100);
+            
+            newPop.saveIndividual(i, crossed);
+          }
+          break;
+        case 3:
+          if (elitism)
+          {
+            Serial.println("Saving fittest individual...");
+            newPop.saveIndividual(0, getFittest(pop));
+            elitismOffset = 1;
+          }
+    
+          Serial.println("Beginning elitism selection...");
+          for (byte i = elitismOffset; i < popSize; i++)
+          {
+            Serial.println("Roulette Selection " + String(i));
+            Individual indiv1 = rouletteSelection(pop);
+    
+            delay(100);
+            
+            Serial.println("Roulette Selection " + String(i + 1));
+            Individual indiv2 = rouletteSelection(pop);
+    
+            delay(100);
+            
+            Individual crossed = crossover(indiv1, indiv2);
+    
+            delay(100);
+            
+            newPop.saveIndividual(i, crossed);
+          }
+          break;
       }
 
       Serial.println("Mutating all the contestants in newPop...");
@@ -353,9 +526,18 @@ class Algorithm
 
 Algorithm alg;
 Population<10> formulae(true);
-int led = 13, generation = 1, finalFitness;
+int led = 13, finalFitness;
 bool foundSolution = false;
 Individual fittest;
+
+struct foundSolutions
+{
+  Individual solution;
+  int fitness;
+  float runTime;
+};
+
+foundSolutions solutions[3];
 
 void blink()
 {
@@ -371,20 +553,27 @@ void blink()
 
 void setup()
 {
+  blink();
+  
   Serial.begin(9600);
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
   pinMode(led, OUTPUT);
   for (byte i = 0; i < formulae.getSize(); i++)
   {
+    Serial.println("Setting initial genes...");
     formulae.at(i).setGene(0, getMeasurement());
   }
+
+  Entropy.Initialize();
+  randomSeed(Entropy.random()^Entropy.random(analogRead(A3)));
 }
 
 void loop()
 {
-  if (!foundSolution)
+  if(!foundSolution)
   {
+    /*
     while (!foundSolution)
     {
       for (byte i = 0; i < formulae.getSize(); i++)
@@ -406,28 +595,11 @@ void loop()
   
       blink();
   
-      Serial.println("Generation: " + String(generation));
-  
-      Serial.println("Best Solution so far: ");
-      fittest=alg.getFittest(formulae);
-  
-      if (alg.getFitness(fittest) < 5)
-      {
-        Serial.println("Exiting loop!");
-        foundSolution = true;
-        finalFitness=alg.getFitness(fittest);
-        break;
-      }
-      
-      Serial.print(fittest.toString());
-      Serial.print("With a fitness of: ");
-      Serial.println(alg.getFitness(fittest));
-  
       delay(100);
   
       blink();
   
-      formulae = alg.evolvePopulation(formulae);
+      formulae = alg.evolvePopulation(formulae, 1);
   
       delay(100);
   
@@ -435,16 +607,150 @@ void loop()
   
       fittest=alg.getFittest(formulae);
   
-      if (alg.getFitness(fittest) < 5)
+      if (alg.getFitness(fittest) < alg.getThreshold())
       {
         Serial.println("Exiting loop!");
         foundSolution = true;
-        finalFitness=alg.getFitness(fittest);
+        finalFitness=alg.getFitness(fittest)+25;
         break;
       }
-  
-      generation++;
     }
+    
+    delay(100);
+  
+    blink();
+  
+    Serial.println("\n\n\n");
+  
+    Serial.print("Final Solution's output measurement is: ");
+    Serial.println(finalFitness);
+    Serial.print("And its formula is: ");
+    Serial.println(fittest.toString());
+
+    Serial.println("\n\n\n");
+
+    Serial.print("Time taken for tournamentPop to run completely is: ");
+    Serial.println(alg.getAvgRunTime());
+  
+    delay(100);
+  
+    blink();
+  
+    solutions[0]={fittest, finalFitness, alg.getAvgRunTime()};
+
+    
+    formulae.reset();
+    alg.reset();
+    foundSolution=false;
+  
+    while (!foundSolution)
+    {
+      for (byte i = 0; i < formulae.getSize(); i++)
+      {
+        Serial.print("Formulae ");
+        Serial.print(i);
+        Serial.print(" has a formula of ");
+        Serial.println(formulae.at(i).toString());
+      }
+  
+      delay(100);
+  
+      blink();
+  
+      Serial.print("Ping returns: ");
+      Serial.println(getMeasurement());
+  
+      delay(100);
+  
+      blink();
+  
+      delay(100);
+  
+      blink();
+  
+      formulae = alg.evolvePopulation(formulae, 2);
+  
+      delay(100);
+  
+      blink();
+  
+      fittest=alg.getFittest(formulae);
+  
+      if (alg.getFitness(fittest) < alg.getThreshold())
+      {
+        Serial.println("Exiting loop!");
+        foundSolution = true;
+        finalFitness=alg.getFitness(fittest)+25;
+        break;
+      }
+    }
+    
+    delay(100);
+  
+    blink();
+  
+    Serial.println("\n\n\n");
+  
+    Serial.print("Final Solution's output measurement is: ");
+    Serial.println(finalFitness);
+    Serial.print("And its formula is: ");
+    Serial.println(fittest.toString());
+
+    Serial.println("\n\n\n");
+
+    Serial.print("Time taken for tournamentPop to run completely is: ");
+    Serial.println(alg.getAvgRunTime());
+  
+    delay(100);
+  
+    blink();
+    
+    solutions[1]={fittest, finalFitness, alg.getAvgRunTime()};
+    formulae.reset();
+    alg.reset();
+    foundSolution=false;*/
+
+    while (!foundSolution)
+      {
+        for (byte i = 0; i < formulae.getSize(); i++)
+        {
+          Serial.print("Formulae ");
+          Serial.print(i);
+          Serial.print(" has a formula of ");
+          Serial.println(formulae.at(i).toString());
+        }
+    
+        delay(100);
+    
+        blink();
+    
+        Serial.print("Ping returns: ");
+        Serial.println(getMeasurement());
+    
+        delay(100);
+    
+        blink();
+  
+        delay(100);
+    
+        blink();
+    
+        formulae = alg.evolvePopulation(formulae, 3);
+    
+        delay(100);
+    
+        blink();
+    
+        fittest=alg.getFittest(formulae);
+    
+        if (alg.getFitness(fittest) < alg.getThreshold())
+        {
+          Serial.println("Exiting loop!");
+          foundSolution = true;
+          finalFitness=alg.getFitness(fittest)+25;
+          break;
+        }
+      }
   
     delay(100);
   
@@ -452,15 +758,40 @@ void loop()
   
     Serial.println("\n\n\n");
   
-    Serial.print("Final Solution's fitness is: ");
+    Serial.print("Final Solution's output measurement is: ");
     Serial.println(finalFitness);
     Serial.print("And its formula is: ");
     Serial.println(fittest.toString());
+
+    Serial.println("\n\n\n");
+
+    Serial.print("Time taken for tournamentPop to run completely is: ");
+    Serial.println(alg.getAvgRunTime());
   
     delay(100);
   
     blink();
+
+    solutions[2]={fittest, finalFitness, alg.getAvgRunTime()};
+    formulae.reset();
+    alg.reset();
+    foundSolution=false;
+
+    Serial.println("\n\n\n\n\n\n");
+    Serial.println("Solutions:");
+
+    for (byte i=0; i<3; i++)
+    {
+      Serial.print("Solution's formula is: ");
+      Serial.print(solutions[i].solution.toString());
+      Serial.print(" which returns a value of ");
+      Serial.print(solutions[i].fitness);
+      Serial.print(" and took a total time of ");
+      Serial.println(solutions[i].runTime);
+    }
   }
 }
-
-/*NOTE, good solution generated was: ((measured-159)/55) 8 times*/
+/*NOTE, good solutions generated include: ((measured-159)/55) 8 times,
+(measured+144)/70 5 times, (measured+195)/80, (measured/125)+12 6 times
+(measured/20)-50 4 times
+*/
