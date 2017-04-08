@@ -126,7 +126,7 @@ class Individual
     {
       //Serial.println("In toString()");
 
-      String measured = String(genes[0]);
+      String measured = String("Measured");
       String op1 = String(convertToChar(genes[1]));
       String const1 = String(genes[2]);
       String op2 = String(convertToChar(genes[3]));
@@ -192,9 +192,6 @@ class Algorithm
     byte mutationRate = 10, solution = 25; // When a number will be generated later, if it's less than this, mutation happens
     bool elitism;
     constexpr static byte tournamentSize = 3, elitismSize=2, rouletteSize=5, threshold=5;
-    byte numTimesRun=0;
-    unsigned long currentTime;
-    float timeTaken;
 
     Individual crossover(Individual &indiv1, Individual &indiv2)
     {
@@ -248,18 +245,6 @@ class Algorithm
     }
 
   public:
-    void reset()
-    {
-      numTimesRun=0;
-      currentTime=0;
-      timeTaken=0;
-    }
-  
-    float getAvgRunTime()
-    {
-      return timeTaken/numTimesRun;
-    }
-
     byte getThreshold()
     {
       return threshold;
@@ -344,7 +329,6 @@ class Algorithm
 
     template <byte popSize> Individual tournamentSelection(Population<popSize> &pop)
     {
-      currentTime=millis();
       Serial.println("In tournamentSelection(), starting clock for measuring time taken...");
 
       Population<tournamentSize> tournamentPop(false);
@@ -360,14 +344,11 @@ class Algorithm
       Individual fittest = getFittest(tournamentPop);
       Serial.println("We've gotten the fittest member of tournamentPop!");
 
-      timeTaken+=static_cast<float>(millis()-currentTime);
-      
       return fittest;
     }
 
     template <byte popSize> Individual elitismSelection(Population<popSize> &pop)
     {
-      currentTime=millis();
       Serial.println("In elitismSelection()");
 
       Population<elitismSize> tournamentPop(false);
@@ -378,8 +359,6 @@ class Algorithm
       Individual fittest=getFittest(tournamentPop);
       Serial.println("We've gotten the fittest member of elitismPop!");
 
-      timeTaken+=static_cast<float>(millis()-currentTime);
-      
       return fittest;
     }
 
@@ -394,45 +373,57 @@ class Algorithm
     }
 
     /* Stochastic Unviersal Sampling */
+    /* Implemented based on code found at http://puzzloq.blogspot.com/2013/03/stochastic-universal-sampling.html */
     template <byte popSize> Individual susSelection(Population<popSize> &pop)
     {
-      currentTime=millis();
       Serial.println("In susSelection()");
-
-      float wheel[popSize];
-      float totalFitness=0, partialFitness=0, start=random(1000/rouletteSize)/1000, pointerDistance, currentPosition;      
       
+      float totalFitness=0;
+
       for (byte i=0; i<popSize; i++)
       {
-        partialFitness=getAdjustedFitness(pop.at(i));
-        if (partialFitness==-1)
-        {
-          return pop.at(i);
-        }
-        totalFitness+=partialFitness;
-        wheel[i]=totalFitness;
+        totalFitness+=getAdjustedFitness(pop.at(i));
       }
 
-      pointerDistance=1/rouletteSize;
+      float distanceBetweenPointers=totalFitness/rouletteSize;
+
+      float start=random(1000)/1000*distanceBetweenPointers;
+
+      byte individuals[rouletteSize];
+
+      byte index=0;
+
+      float sum=getAdjustedFitness(pop.at(index));
+
+      for (byte i=0; i<rouletteSize; i++)
+      {
+        float pointer=start+i*distanceBetweenPointers;
+        if (sum>=pointer)
+        {
+          individuals[i]=index;
+        }
+        else
+        {
+          for (++index; index<popSize; index++)
+          {
+            sum+=getAdjustedFitness(pop.at(index));
+            if (sum>=pointer)
+            {
+              individuals[i]=index;
+              break;
+            }
+          }
+        }
+      }
 
       Population<rouletteSize> tournamentPop(false);
 
-      byte j=0;
-      for (byte i=0; i<popSize-1; i++)
+      for (byte i=0; i<rouletteSize; i++)
       {
-        currentPosition=start+pointerDistance*j;
-        if (currentPosition>wheel[i] && currentPosition<wheel[i+1])
-        {
-          tournamentPop.saveIndividual(j, pop.at(i));
-          j++;
-        }
+        tournamentPop.saveIndividual(i, pop.getIndividual(individuals[i]));
       }
 
-      Individual fittest=getFittest(tournamentPop);
-            
-      timeTaken+=static_cast<float>(millis()-currentTime);
-      
-      return fittest;
+      return getFittest(tournamentPop);
     }
 
     template <byte popSize> Population<popSize> evolvePopulation(Population<popSize> &pop, byte selectionType)
@@ -551,7 +542,6 @@ struct foundSolutions
 {
   Individual solution;
   int fitness;
-  float runTime;
 };
 
 foundSolutions solutions[3];
@@ -571,16 +561,16 @@ void blink()
 void setup()
 {
   blink();
+
+  for (byte i=0; i<formulae.getSize(); i++)
+  {
+    formulae.at(i).setGene(0, getMeasurement());
+  }
   
   Serial.begin(9600);
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
   pinMode(led, OUTPUT);
-  for (byte i = 0; i < formulae.getSize(); i++)
-  {
-    Serial.println("Setting initial genes...");
-    formulae.at(i).setGene(0, getMeasurement());
-  }
 
   Entropy.Initialize();
   randomSeed(Entropy.random()^Entropy.random(analogRead(A3)));
@@ -590,7 +580,6 @@ void loop()
 {
   if(!foundSolution)
   {
-    /*
     while (!foundSolution)
     {
       for (byte i = 0; i < formulae.getSize(); i++)
@@ -645,21 +634,17 @@ void loop()
     Serial.println(fittest.toString());
 
     Serial.println("\n\n\n");
-
-    Serial.print("Time taken for tournamentPop to run completely is: ");
-    Serial.println(alg.getAvgRunTime());
   
     delay(100);
   
     blink();
   
-    solutions[0]={fittest, finalFitness, alg.getAvgRunTime()};
-
+    solutions[0]={fittest, finalFitness};
     
     formulae.reset();
-    alg.reset();
     foundSolution=false;
-  
+
+    /*
     while (!foundSolution)
     {
       for (byte i = 0; i < formulae.getSize(); i++)
@@ -714,17 +699,13 @@ void loop()
     Serial.println(fittest.toString());
 
     Serial.println("\n\n\n");
-
-    Serial.print("Time taken for tournamentPop to run completely is: ");
-    Serial.println(alg.getAvgRunTime());
   
     delay(100);
   
     blink();
     
-    solutions[1]={fittest, finalFitness, alg.getAvgRunTime()};
+    solutions[1]={fittest, finalFitness};
     formulae.reset();
-    alg.reset();
     foundSolution=false;*/
 
     while (!foundSolution)
@@ -781,17 +762,13 @@ void loop()
     Serial.println(fittest.toString());
 
     Serial.println("\n\n\n");
-
-    Serial.print("Time taken for tournamentPop to run completely is: ");
-    Serial.println(alg.getAvgRunTime());
   
     delay(100);
   
     blink();
 
-    solutions[2]={fittest, finalFitness, alg.getAvgRunTime()};
+    solutions[2]={fittest, finalFitness};
     formulae.reset();
-    alg.reset();
     foundSolution=false;
 
     Serial.println("\n\n\n\n\n\n");
@@ -802,13 +779,14 @@ void loop()
       Serial.print("Solution's formula is: ");
       Serial.print(solutions[i].solution.toString());
       Serial.print(" which returns a value of ");
-      Serial.print(solutions[i].fitness);
-      Serial.print(" and took a total time of ");
-      Serial.println(solutions[i].runTime);
+      Serial.println(solutions[i].fitness);
     }
   }
 }
-/*NOTE, good solutions generated include: ((measured-159)/55) 8 times,
-(measured+144)/70 5 times, (measured+195)/80, (measured/125)+12 6 times
-(measured/20)-50 4 times
+/*NOTE, good solutions generated include: (measured-159)/55 8 times,
+(measured+144)/70 5 times, (measured+195)/80 1 time,
+(measured/125)+12 6 times, (measured/20)-50 4 times,
+(measured/137)+18 4 times, (measured/91)+8 2 times,
+(measured-73)/55 8 times, (measured+39)/54 9 times,
+(measured/137)+14 2 times, (measured-79)/49 2 times
 */
