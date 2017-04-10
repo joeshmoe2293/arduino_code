@@ -191,7 +191,7 @@ class Algorithm
   private:
     byte mutationRate = 10, solution = 25; // When a number will be generated later, if it's less than this, mutation happens
     bool elitism;
-    constexpr static byte tournamentSize = 3, elitismSize=2, rouletteSize=5, threshold=5;
+    constexpr static byte tournamentSize = 3, elitismSize=2, rouletteSize=3, threshold=5;
 
     Individual crossover(Individual &indiv1, Individual &indiv2)
     {
@@ -377,24 +377,16 @@ class Algorithm
     template <byte popSize> Individual susSelection(Population<popSize> &pop)
     {
       Serial.println("In susSelection()");
-      
       float totalFitness=0;
-
       for (byte i=0; i<popSize; i++)
       {
         totalFitness+=getAdjustedFitness(pop.at(i));
       }
-
       float distanceBetweenPointers=totalFitness/rouletteSize;
-
       float start=random(1000)/1000*distanceBetweenPointers;
-
       byte individuals[rouletteSize];
-
       byte index=0;
-
       float sum=getAdjustedFitness(pop.at(index));
-
       for (byte i=0; i<rouletteSize; i++)
       {
         float pointer=start+i*distanceBetweenPointers;
@@ -415,14 +407,11 @@ class Algorithm
           }
         }
       }
-
       Population<rouletteSize> tournamentPop(false);
-
       for (byte i=0; i<rouletteSize; i++)
       {
         tournamentPop.saveIndividual(i, pop.getIndividual(individuals[i]));
       }
-
       return getFittest(tournamentPop);
     }
 
@@ -580,6 +569,7 @@ void loop()
 {
   if(!foundSolution)
   {
+    /*
     while (!foundSolution)
     {
       for (byte i = 0; i < formulae.getSize(); i++)
@@ -639,12 +629,11 @@ void loop()
   
     blink();
   
-    solutions[0]={fittest, finalFitness};
-    
+    solutions[0]={fittest, finalFitness}; 
     formulae.reset();
-    foundSolution=false;
+    foundSolution=false;*/
 
-    /*
+/*
     while (!foundSolution)
     {
       for (byte i = 0; i < formulae.getSize(); i++)
@@ -709,46 +698,46 @@ void loop()
     foundSolution=false;*/
 
     while (!foundSolution)
+    {
+      for (byte i = 0; i < formulae.getSize(); i++)
       {
-        for (byte i = 0; i < formulae.getSize(); i++)
-        {
-          Serial.print("Formulae ");
-          Serial.print(i);
-          Serial.print(" has a formula of ");
-          Serial.println(formulae.at(i).toString());
-        }
-    
-        delay(100);
-    
-        blink();
-    
-        Serial.print("Ping returns: ");
-        Serial.println(getMeasurement());
-    
-        delay(100);
-    
-        blink();
-  
-        delay(100);
-    
-        blink();
-    
-        formulae = alg.evolvePopulation(formulae, 3);
-    
-        delay(100);
-    
-        blink();
-    
-        fittest=alg.getFittest(formulae);
-    
-        if (alg.getFitness(fittest) < alg.getThreshold())
-        {
-          Serial.println("Exiting loop!");
-          foundSolution = true;
-          finalFitness=alg.getFitness(fittest)+25;
-          break;
-        }
+        Serial.print("Formulae ");
+        Serial.print(i);
+        Serial.print(" has a formula of ");
+        Serial.println(formulae.at(i).toString());
       }
+  
+      delay(100);
+  
+      blink();
+  
+      Serial.print("Ping returns: ");
+      Serial.println(getMeasurement());
+  
+      delay(100);
+  
+      blink();
+
+      delay(100);
+  
+      blink();
+  
+      formulae = alg.evolvePopulation(formulae, 3);
+  
+      delay(100);
+  
+      blink();
+  
+      fittest=alg.getFittest(formulae);
+  
+      if (alg.getFitness(fittest) < alg.getThreshold())
+      {
+        Serial.println("Exiting loop!");
+        foundSolution = true;
+        finalFitness=alg.getFitness(fittest)+25;
+        break;
+      }
+    }
   
     delay(100);
   
@@ -771,7 +760,7 @@ void loop()
     formulae.reset();
     foundSolution=false;
 
-    Serial.println("\n\n\n\n\n\n");
+    /*Serial.println("\n\n\n\n\n\n");
     Serial.println("Solutions:");
 
     for (byte i=0; i<3; i++)
@@ -780,7 +769,7 @@ void loop()
       Serial.print(solutions[i].solution.toString());
       Serial.print(" which returns a value of ");
       Serial.println(solutions[i].fitness);
-    }
+    }*/
   }
 }
 /*NOTE, good solutions generated include: (measured-159)/55 8 times,
