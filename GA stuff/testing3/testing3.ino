@@ -1,5 +1,5 @@
-#define ECHO 8
-#define TRIG 9
+#define ECHO 9
+#define TRIG 10
 
 #include <Entropy.h>
 #include "Arduino.h"
